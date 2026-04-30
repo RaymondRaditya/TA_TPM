@@ -91,8 +91,8 @@ class StoreLocatorScreenState extends State<StoreLocatorScreen> {
             flex: 3, // Give more space to the map
             child: FlutterMap(
               mapController: _mapController,
-              options: MapOptions(
-                initialCenter: const LatLng(
+              options: const MapOptions(
+                initialCenter: LatLng(
                   -2.5489,
                   118.0149,
                 ), // Center of Indonesia

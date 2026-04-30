@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tpm_ta/services/notification_service.dart';
 import 'package:tpm_ta/screens/mini_game_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -204,14 +205,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
             const Spacer(),
             ElevatedButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Order Placed Successfully!'),
-                    duration: Duration(seconds: 2),
-                  ),
+              onPressed: () async {
+                await NotificationService().showNotification(
+                  0,
+                  'Order Confirmed!',
+                  'Your T-Shirt order has been successfully placed.',
                 );
-                Navigator.pop(context);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                }
               },
               icon: const Icon(Icons.check_circle, size: 24),
               label: const Padding(

@@ -34,7 +34,7 @@ class _MiniGameScreenState extends State<MiniGameScreen> {
 
   void _startGame() {
     // 1) 30-Second Countdown
-    _countdown = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _countdown = Timer.periodic(const Duration(seconds: 1), (_) {
       setState(() {
         _timeLeft--;
       });
@@ -44,7 +44,7 @@ class _MiniGameScreenState extends State<MiniGameScreen> {
     });
 
     // 2) Spawn new T-shirts periodically
-    _spawnLoop = Timer.periodic(const Duration(milliseconds: 600), (timer) {
+    _spawnLoop = Timer.periodic(const Duration(milliseconds: 600), (_) {
       setState(() {
         _items.add(
           FallingItem(
@@ -61,7 +61,7 @@ class _MiniGameScreenState extends State<MiniGameScreen> {
     });
 
     // 3) Physics/Animation loop to move items downwards
-    _gameLoop = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+    _gameLoop = Timer.periodic(const Duration(milliseconds: 50), (_) {
       setState(() {
         for (var item in _items) {
           item.y += 0.05; // Fall speed
