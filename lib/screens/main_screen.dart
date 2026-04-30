@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tpm_ta/screens/login_screen.dart';
 import 'package:tpm_ta/services/database_helper.dart';
+import 'package:tpm_ta/screens/feedback_screen.dart';
 import 'package:tpm_ta/screens/tshirt_canvas_screen.dart';
 import 'package:tpm_ta/screens/store_locator_screen.dart';
 
@@ -53,30 +54,7 @@ class _MainScreenState extends State<MainScreen> {
       ),
     ),
     // 3) TPM Feedback Tab
-    Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'Saran & Kesan mata kuliah TPM',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-          const TextField(
-            decoration: InputDecoration(
-              labelText: 'Your Feedback',
-              border: OutlineInputBorder(),
-            ),
-            maxLines: 4,
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton(onPressed: () {}, child: const Text('Submit')),
-        ],
-      ),
-    ),
+    const FeedbackScreen(),
     // 4) Logout Placeholder (Handled in onTap so it doesn't need a UI)
     const SizedBox.shrink(),
   ];
@@ -114,7 +92,7 @@ class _MainScreenState extends State<MainScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           BottomNavigationBarItem(
             icon: Icon(Icons.feedback),
-            label: 'TPM Feedback',
+            label: 'Feedback',
           ),
           BottomNavigationBarItem(icon: Icon(Icons.logout), label: 'Logout'),
         ],
