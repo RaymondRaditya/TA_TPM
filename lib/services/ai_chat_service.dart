@@ -7,7 +7,7 @@ class AIChatService {
 
   // Using gemini-1.5-flash as it is fast and suitable for short creative tasks
   static const String _apiUrl =
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$_apiKey';
+      'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=$_apiKey';
 
   Future<String> askDesignAssistant(String query) async {
     try {

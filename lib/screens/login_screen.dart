@@ -15,62 +15,114 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final AuthService _authService = AuthService();
   bool _isLoading = false;
+  bool _isLoginMode = true;
+  bool _showBiometricButton = false;
 
-  Future<void> _handleLogin() async {
-    final username = _usernameController.text.trim();
+  @override
+  void initState() {
+    super.initState();
+    _usernameController.addListener(_onUsernameChanged);
+  }
 
-    if (username.isEmpty) {
+  void _onUsernameChanged() {
+    _checkBiometricStatusForEmail(); // Fire and forget the async check
+  }
+
+  Future<void> _checkBiometricStatusForEmail() async {
+    final email = _usernameController.text.trim();
+    if (email.isEmpty) {
+      if (_showBiometricButton) setState(() => _showBiometricButton = false);
+      return;
+    }
+
+    final user = await DatabaseHelper.instance.getUserByEmail(email);
+    final bool isEnabled =
+        user != null && user[DatabaseHelper.columnBiometricRegistered] == 1;
+
+    if (isEnabled != _showBiometricButton) {
+      setState(() {
+        _showBiometricButton = isEnabled;
+      });
+    }
+  }
+
+  Future<void> _handlePasswordAction() async {
+    final email = _usernameController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a username first.')),
+        const SnackBar(content: Text('Please enter email and password.')),
       );
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
+    bool success = false;
 
-    // Trigger biometric authentication via local_auth
-    final success = await _authService.authenticateWithBiometrics();
-
-    if (success) {
-      // Check if user exists in the local database
-      var user = await DatabaseHelper.instance.getUserByUsername(username);
-
-      // If not, insert a default user session to tie their future designs to
-      if (user == null) {
-        await DatabaseHelper.instance.insertUser({
-          DatabaseHelper.columnUsername: username,
-          DatabaseHelper.columnIsBiometricEnabled:
-              1, // Track that they use biometrics
-        });
-      }
-
-      // Navigate to Main Screen upon success
-      if (mounted) {
+    if (_isLoginMode) {
+      success = await _authService.login(email, password);
+      setState(() => _isLoading = false);
+      if (success && mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const MainScreen()),
         );
+      } else if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Invalid credentials')));
       }
     } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Authentication failed or was canceled.'),
-          ),
-        );
+      success = await _authService.register(email, password);
+      if (success) {
+        setState(() {
+          _isLoading = false;
+          _isLoginMode = true; // Switch back to login view
+          _passwordController.clear(); // Clear the password field for security
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Registration successful! Please login.'),
+            ),
+          );
+        }
+      } else {
+        setState(() => _isLoading = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Registration failed. Email might be in use.'),
+            ),
+          );
+        }
       }
     }
+  }
 
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
+  Future<void> _handleBiometricLogin() async {
+    final email = _usernameController.text.trim();
+
+    setState(() => _isLoading = true);
+    final success = await _authService.loginWithBiometrics(email);
+    setState(() => _isLoading = false);
+
+    if (success && mounted) {
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const MainScreen()));
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Biometric authentication failed or was canceled.'),
+        ),
+      );
     }
   }
 
   @override
   void dispose() {
+    _usernameController.removeListener(_onUsernameChanged);
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -119,39 +171,52 @@ class _LoginScreenState extends State<LoginScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         ElevatedButton(
+                          onPressed: _handlePasswordAction,
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16.0),
+                            child: Text(
+                              _isLoginMode ? 'Login' : 'Register',
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
                           onPressed: () {
-                            // TODO: Implement standard password-based login
+                            setState(() {
+                              _isLoginMode = !_isLoginMode;
+                            });
                           },
-                          style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16.0),
-                            child: Text(
-                              'Login',
-                              style: TextStyle(fontSize: 16),
-                            ),
+                          child: Text(
+                            _isLoginMode
+                                ? "Don't have an account? Register"
+                                : "Already have an account? Login",
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          onPressed: _handleLogin,
-                          icon: const Icon(Icons.fingerprint, size: 32),
-                          label: const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16.0),
-                            child: Text(
-                              'Login with Biometrics',
-                              style: TextStyle(fontSize: 16),
+                        if (_isLoginMode && _showBiometricButton) ...[
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
+                            onPressed: _handleBiometricLogin,
+                            icon: const Icon(Icons.fingerprint, size: 32),
+                            label: const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 16.0),
+                              child: Text(
+                                'Login with Biometrics',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                           ),
-                          style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
+                        ],
                       ],
                     ),
             ],
