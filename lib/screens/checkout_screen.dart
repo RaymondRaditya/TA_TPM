@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tpm_ta/screens/mini_game_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -9,24 +10,24 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   final double _basePriceIdr = 150000.0;
-  String _selectedCurrency = 'IDR';
-
-  final List<String> _currencies = ['IDR', 'USD', 'EUR', 'GBP'];
+  String selectedCurrency = 'IDR';
+  bool _hasDiscount = false;
+  final Map<String, double> exchangeRates = {
+    'IDR': 1.0,
+    'USD': 0.000064, // ~1 USD = 15,625 IDR
+    'EUR': 0.000059, // ~1 EUR = 16,949 IDR
+    'GBP': 0.000050, // ~1 GBP = 20,000 IDR
+  };
 
   // 1) Currency Conversion Utility
-  String _getConvertedPrice() {
-    // Static approximate exchange rates relative to IDR
-    const ratesToIdr = {
-      'IDR': 1.0,
-      'USD': 0.000064, // ~1 USD = 15,625 IDR
-      'EUR': 0.000059, // ~1 EUR = 16,949 IDR
-      'GBP': 0.000051, // ~1 GBP = 19,607 IDR
-    };
+  String getFormattedTotal(double basePriceIdr) {
+    final double finalBasePrice = _hasDiscount
+        ? basePriceIdr * 0.9
+        : basePriceIdr;
+    final rate = exchangeRates[selectedCurrency] ?? 1.0;
+    final converted = finalBasePrice * rate;
 
-    final rate = ratesToIdr[_selectedCurrency] ?? 1.0;
-    final converted = _basePriceIdr * rate;
-
-    switch (_selectedCurrency) {
+    switch (selectedCurrency) {
       case 'USD':
         return '\$${converted.toStringAsFixed(2)}';
       case 'EUR':
@@ -35,7 +36,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         return '£${converted.toStringAsFixed(2)}';
       case 'IDR':
       default:
-        return 'Rp ${_basePriceIdr.toStringAsFixed(0)}';
+        // For IDR, it's better to show the original base price without conversion artifacts
+        return 'Rp ${finalBasePrice.toStringAsFixed(0)}';
+    }
+  }
+
+  Future<void> _playMiniGame() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const MiniGameScreen()),
+    );
+    if (result == 'DISCOUNT_10') {
+      setState(() {
+        _hasDiscount = true;
+      });
     }
   }
 
@@ -89,8 +103,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   style: TextStyle(fontSize: 18),
                 ),
                 DropdownButton<String>(
-                  value: _selectedCurrency,
-                  items: _currencies.map((String currency) {
+                  value: selectedCurrency,
+                  items: exchangeRates.keys.map((String currency) {
                     return DropdownMenuItem<String>(
                       value: currency,
                       child: Text(currency),
@@ -99,7 +113,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   onChanged: (String? newValue) {
                     if (newValue != null) {
                       setState(() {
-                        _selectedCurrency = newValue;
+                        selectedCurrency = newValue;
                       });
                     }
                   },
@@ -108,7 +122,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              _getConvertedPrice(),
+              getFormattedTotal(_basePriceIdr),
               style: const TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
@@ -116,6 +130,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
               textAlign: TextAlign.right,
             ),
+            if (_hasDiscount)
+              const Padding(
+                padding: EdgeInsets.only(top: 4.0),
+                child: Text(
+                  '10% Discount Applied!',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ),
+            const SizedBox(height: 16),
+            if (!_hasDiscount)
+              ElevatedButton.icon(
+                onPressed: _playMiniGame,
+                icon: const Icon(Icons.videogame_asset),
+                label: const Text('Play Mini-Game for 10% Off!'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
+              ),
             const Divider(height: 48, thickness: 1),
             const Text(
               'Estimated Delivery Time',

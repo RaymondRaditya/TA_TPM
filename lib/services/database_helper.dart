@@ -13,6 +13,8 @@ class DatabaseHelper {
   static const tableUsers = 'users';
   static const columnUserId = 'id';
   static const columnUsername = 'username';
+  static const columnEmail = 'email';
+  static const columnPasswordHash = 'password_hash';
   static const columnIsBiometricEnabled = 'is_biometric_enabled';
 
   // --- Saved Designs Table ---
@@ -60,6 +62,8 @@ class DatabaseHelper {
       CREATE TABLE $tableUsers (
         $columnUserId INTEGER PRIMARY KEY AUTOINCREMENT,
         $columnUsername TEXT NOT NULL UNIQUE,
+        $columnEmail TEXT UNIQUE,
+        $columnPasswordHash TEXT,
         $columnIsBiometricEnabled INTEGER NOT NULL DEFAULT 0
       )
     ''');
@@ -101,6 +105,16 @@ class DatabaseHelper {
       tableUsers,
       where: '$columnUsername = ?',
       whereArgs: [username],
+    );
+    return results.isNotEmpty ? results.first : null;
+  }
+
+  Future<Map<String, dynamic>?> getUserByEmail(String email) async {
+    Database db = await instance.database;
+    List<Map<String, dynamic>> results = await db.query(
+      tableUsers,
+      where: '$columnEmail = ?',
+      whereArgs: [email],
     );
     return results.isNotEmpty ? results.first : null;
   }

@@ -1,4 +1,7 @@
+import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 import 'package:tpm_ta/screens/parallax_preview_screen.dart';
 
 class TShirtCanvasScreen extends StatefulWidget {
@@ -22,11 +25,35 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
   ];
   List<String> _filteredTemplates = [];
 
+  StreamSubscription<AccelerometerEvent>? _accelSubscription;
+  DateTime _lastShakeTime = DateTime.now();
+  Color _tshirtColor = Colors.grey.shade200;
+  final Random _random = Random();
+
   @override
   void initState() {
     super.initState();
     _filteredTemplates = _allTemplates;
     _searchController.addListener(_filterTemplates);
+
+    // Subscribe to accelerometer events to detect shakes
+    _accelSubscription = accelerometerEventStream().listen((
+      AccelerometerEvent event,
+    ) {
+      final double magnitude = sqrt(
+        event.x * event.x + event.y * event.y + event.z * event.z,
+      );
+      if (magnitude > 15.0) {
+        final now = DateTime.now();
+        if (now.difference(_lastShakeTime).inMilliseconds >= 1000) {
+          _lastShakeTime = now;
+          setState(() {
+            _tshirtColor =
+                Colors.primaries[_random.nextInt(Colors.primaries.length)];
+          });
+        }
+      }
+    });
   }
 
   // Initial coordinates for the sticker
@@ -49,6 +76,7 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
 
   @override
   void dispose() {
+    _accelSubscription?.cancel();
     _searchController.removeListener(_filterTemplates);
     _searchController.dispose();
     super.dispose();
@@ -133,7 +161,7 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                         size:
                             _canvasWidth *
                             1.2, // Scale up icon to look like a shirt
-                        color: Colors.grey.shade200,
+                        color: _tshirtColor,
                       ),
                     ),
                     // Top Layer: Draggable sticker/logo
