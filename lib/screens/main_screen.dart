@@ -3,9 +3,17 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:tpm_ta/services/database_helper.dart';
 import 'package:tpm_ta/services/auth_service.dart';
-import 'package:tpm_ta/screens/store_locator_screen.dart';
+import 'package:tpm_ta/screens/ai_design_assistant_screen.dart';
+import 'package:tpm_ta/screens/api_catalog_screen.dart';
+import 'package:tpm_ta/screens/currency_converter_screen.dart';
+import 'package:tpm_ta/screens/feedback_screen.dart';
+import 'package:tpm_ta/screens/find_our_branch_screen.dart';
+import 'package:tpm_ta/screens/search_filter_notification_screen.dart';
+import 'package:tpm_ta/screens/sensor_quality_screen.dart';
+import 'package:tpm_ta/screens/time_zone_converter_screen.dart';
 
 import 'package:tpm_ta/screens/home_tab.dart';
+import 'package:tpm_ta/screens/login_screen.dart';
 import 'package:tpm_ta/screens/mini_game_screen.dart';
 import 'package:tpm_ta/screens/checkout_screen.dart';
 
@@ -17,24 +25,65 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
+  static const int _logoutIndex = 6;
+  final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
   int _selectedIndex = 0;
 
   // Define the content for each tab
   final List<Widget> _widgetOptions = <Widget>[
     // 1) Home Tab
     const HomeTab(),
-    // 2) Stores Tab (Restored)
-    const StoreLocatorScreen(),
+    // 2) Find Our Branch Tab
+    const FindOurBranchScreen(),
     // 3) Minigame Tab
     const MiniGameScreen(),
     // 4) Checkout Tab
     const CheckoutScreen(),
+    // 5) Feedback Tab
+    const FeedbackScreen(),
+    // 6) Profile Tab
+    const ProfileTab(),
   ];
 
   void _onItemTapped(int index) {
+    if (index == _logoutIndex) {
+      _confirmLogout();
+      return;
+    }
+
     setState(() {
       _selectedIndex = index;
     });
+  }
+
+  Future<void> _confirmLogout() async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to end this session?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLogout != true) return;
+
+    await _secureStorage.delete(key: 'session_token');
+    if (!mounted) return;
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
   }
 
   @override
@@ -43,6 +92,78 @@ class _MainScreenState extends State<MainScreen> {
       appBar: AppBar(
         title: const Text('T-Shirt Studio'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.currency_exchange),
+            tooltip: 'Currency Converter',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CurrencyConverterScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.schedule),
+            tooltip: 'Time Zone Converter',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TimeZoneConverterScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.cloud_sync),
+            tooltip: 'Live Apparel API',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ApiCatalogScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.sensors),
+            tooltip: 'Sensor Print Check',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SensorQualityScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.auto_awesome),
+            tooltip: 'AI Design Assistant',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AiDesignAssistantScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.manage_search),
+            tooltip: 'Search & Alerts',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SearchFilterNotificationScreen(),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.shopping_cart),
             onPressed: () {
@@ -65,9 +186,12 @@ class _MainScreenState extends State<MainScreen> {
         type: BottomNavigationBarType.fixed,
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Stores'),
+          BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Branches'),
           BottomNavigationBarItem(icon: Icon(Icons.videogame_asset), label: 'Minigame'),
           BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Checkout'),
+          BottomNavigationBarItem(icon: Icon(Icons.feedback), label: 'Feedback'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          BottomNavigationBarItem(icon: Icon(Icons.logout), label: 'Logout'),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.deepPurple,
