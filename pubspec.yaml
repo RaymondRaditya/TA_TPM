@@ -41,6 +41,7 @@ dependencies:
   http: 
   flutter_map: 
   latlong2: 
+  geolocator:
   crypto:
   flutter_secure_storage:
   google_generative_ai: ^0.4.0 
