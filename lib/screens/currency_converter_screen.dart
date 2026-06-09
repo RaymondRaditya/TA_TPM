@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 class CurrencyConverterScreen extends StatefulWidget {
   const CurrencyConverterScreen({super.key});
@@ -9,39 +11,66 @@ class CurrencyConverterScreen extends StatefulWidget {
 }
 
 class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
-  static const Map<String, _CurrencyInfo> _currencies = {
-    'IDR': _CurrencyInfo(
-      code: 'IDR',
-      name: 'Indonesian Rupiah',
-      symbol: 'Rp',
-      unitsPerUsd: 15600,
-    ),
-    'USD': _CurrencyInfo(
-      code: 'USD',
-      name: 'US Dollar',
-      symbol: r'$',
-      unitsPerUsd: 1,
-    ),
-    'EUR': _CurrencyInfo(
-      code: 'EUR',
-      name: 'Euro',
-      symbol: 'EUR',
-      unitsPerUsd: 0.92,
-    ),
-    'GBP': _CurrencyInfo(
-      code: 'GBP',
-      name: 'British Pound',
-      symbol: 'GBP',
-      unitsPerUsd: 0.79,
-    ),
-  };
-
   final TextEditingController _amountController = TextEditingController(
     text: '150000',
   );
 
   String _fromCurrency = 'IDR';
   String _toCurrency = 'USD';
+  Map<String, double> _exchangeRates = {};
+  List<String> _availableCurrencies = [];
+  bool _isLoading = false;
+  bool _hasError = false;
+  DateTime? _lastFetchTime;
+  static const int _cacheDurationMinutes = 60;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchExchangeRates();
+  }
+
+  Future<void> _fetchExchangeRates() async {
+    if (_lastFetchTime != null &&
+        DateTime.now().difference(_lastFetchTime!).inMinutes <
+            _cacheDurationMinutes) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
+
+    try {
+      final response = await http
+          .get(Uri.parse('https://api.exchangerate-api.com/v4/latest/USD'))
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final rates = Map<String, double>.from(
+          (data['rates'] as Map<String, dynamic>).map(
+            (key, value) => MapEntry(key, (value as num).toDouble()),
+          ),
+        );
+
+        setState(() {
+          _exchangeRates = rates;
+          _availableCurrencies = rates.keys.toList()..sort();
+          _lastFetchTime = DateTime.now();
+          _isLoading = false;
+        });
+      } else {
+        throw Exception('Failed to fetch rates');
+      }
+    } catch (e) {
+      setState(() {
+        _hasError = true;
+        _isLoading = false;
+      });
+    }
+  }
 
   double get _amount {
     final normalizedValue = _amountController.text.trim().replaceAll(',', '.');
@@ -49,14 +78,16 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
   }
 
   double get _convertedAmount {
-    final fromRate = _currencies[_fromCurrency]!.unitsPerUsd;
-    final toRate = _currencies[_toCurrency]!.unitsPerUsd;
+    if (_exchangeRates.isEmpty) return 0;
+    final fromRate = _exchangeRates[_fromCurrency] ?? 1;
+    final toRate = _exchangeRates[_toCurrency] ?? 1;
     return (_amount / fromRate) * toRate;
   }
 
   double _convertFromIdr(double amountInIdr, String code) {
-    final idrRate = _currencies['IDR']!.unitsPerUsd;
-    final targetRate = _currencies[code]!.unitsPerUsd;
+    if (_exchangeRates.isEmpty) return 0;
+    final idrRate = _exchangeRates['IDR'] ?? 1;
+    final targetRate = _exchangeRates[code] ?? 1;
     return (amountInIdr / idrRate) * targetRate;
   }
 
@@ -76,14 +107,8 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
   }
 
   String _formatCurrency(String code, double value) {
-    final currency = _currencies[code]!;
     final decimalPlaces = code == 'IDR' ? 0 : 2;
-    return '${currency.symbol} ${value.toStringAsFixed(decimalPlaces)}';
-  }
-
-  String _formatRateValue(_CurrencyInfo currency) {
-    final decimalPlaces = currency.code == 'IDR' ? 0 : 2;
-    return currency.unitsPerUsd.toStringAsFixed(decimalPlaces);
+    return '$code ${value.toStringAsFixed(decimalPlaces)}';
   }
 
   @override
@@ -97,7 +122,16 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
     final convertedAmount = _convertedAmount;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Currency Converter')),
+      appBar: AppBar(
+        title: const Text('Currency Converter'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _fetchExchangeRates,
+            tooltip: 'Refresh rates',
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -105,11 +139,36 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
           children: [
             _buildHeader(context, convertedAmount),
             const SizedBox(height: 16),
-            _buildConverterForm(),
-            const SizedBox(height: 16),
-            _buildProductionPresets(),
-            const SizedBox(height: 16),
-            _buildRateReference(),
+            if (_hasError)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade300),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline, color: Colors.red.shade700),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Failed to fetch live rates. Tap refresh to retry.',
+                        style: TextStyle(color: Colors.red.shade700),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else if (_isLoading)
+              const Center(child: CircularProgressIndicator())
+            else ...[
+              _buildConverterForm(),
+              const SizedBox(height: 16),
+              _buildProductionPresets(),
+              const SizedBox(height: 16),
+              _buildRateReference(),
+            ],
           ],
         ),
       ),
@@ -151,15 +210,23 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
           Text(
             _formatCurrency(_toCurrency, convertedAmount),
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.deepPurple.shade700,
-                ),
+              fontWeight: FontWeight.bold,
+              color: Colors.deepPurple.shade700,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             '${_formatCurrency(_fromCurrency, _amount)} in $_toCurrency',
             style: TextStyle(color: Colors.grey.shade700),
           ),
+          if (_lastFetchTime != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                'Updated: ${_lastFetchTime!.toLocal().toString().split('.')[0]}',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+            ),
         ],
       ),
     );
@@ -229,18 +296,15 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
     required ValueChanged<String?> onChanged,
   }) {
     return DropdownButtonFormField<String>(
-      value: value,
+      value: _availableCurrencies.contains(value) ? value : null,
       isExpanded: true,
       decoration: InputDecoration(
         labelText: label,
         border: const OutlineInputBorder(),
       ),
-      items: _currencies.values
+      items: _availableCurrencies
           .map(
-            (currency) => DropdownMenuItem<String>(
-              value: currency.code,
-              child: Text('${currency.code} - ${currency.name}'),
-            ),
+            (code) => DropdownMenuItem<String>(value: code, child: Text(code)),
           )
           .toList(),
       onChanged: onChanged,
@@ -275,7 +339,7 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
                     (preset) => ActionChip(
                       avatar: const Icon(Icons.checkroom, size: 18),
                       label: Text(
-                        '${preset.label} (${_formatCurrency('IDR', preset.amountInIdr)})',
+                        '${preset.label} (IDR ${preset.amountInIdr.toStringAsFixed(0)})',
                       ),
                       onPressed: () => _applyPreset(preset.amountInIdr),
                     ),
@@ -307,32 +371,49 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Static Rate Reference',
+              'Realtime Exchange Rates (vs USD)',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
-            ..._currencies.values.map(
-              (currency) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 48,
-                      child: Text(
-                        currency.code,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+            if (_exchangeRates.isEmpty)
+              Text(
+                'No rates available',
+                style: TextStyle(color: Colors.grey.shade600),
+              )
+            else
+              ..._exchangeRates.entries
+                  .take(10)
+                  .map(
+                    (entry) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 5),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 48,
+                            child: Text(
+                              entry.key,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              '1 USD = ${entry.value.toStringAsFixed(2)} ${entry.key}',
+                              textAlign: TextAlign.right,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    Expanded(
-                      child: Text(
-                        '1 USD = ${_formatRateValue(currency)} ${currency.code}',
-                        textAlign: TextAlign.right,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+            if (_exchangeRates.length > 10) ...[
+              const SizedBox(height: 8),
+              Text(
+                '+${_exchangeRates.length - 10} more currencies',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -340,25 +421,8 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
   }
 }
 
-class _CurrencyInfo {
-  const _CurrencyInfo({
-    required this.code,
-    required this.name,
-    required this.symbol,
-    required this.unitsPerUsd,
-  });
-
-  final String code;
-  final String name;
-  final String symbol;
-  final double unitsPerUsd;
-}
-
 class _ProductionPreset {
-  const _ProductionPreset({
-    required this.label,
-    required this.amountInIdr,
-  });
+  const _ProductionPreset({required this.label, required this.amountInIdr});
 
   final String label;
   final double amountInIdr;

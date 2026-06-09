@@ -13,13 +13,20 @@ class AuthService {
     return sha256.convert(utf8.encode(password)).toString();
   }
 
+  bool _looksLikeEmail(String value) {
+    return value.contains('@');
+  }
+
   Future<bool> register(String email, String password) async {
     try {
+      final normalizedEmail = email.trim();
+      if (!_looksLikeEmail(normalizedEmail)) {
+        return false;
+      }
       final hashedPassword = _hashPassword(password);
       await DatabaseHelper.instance.insertUser({
-        DatabaseHelper.columnUsername:
-            email, // Fallback for existing username references
-        DatabaseHelper.columnEmail: email,
+        DatabaseHelper.columnUsername: normalizedEmail,
+        DatabaseHelper.columnEmail: normalizedEmail,
         DatabaseHelper.columnPasswordHash: hashedPassword,
       });
       return true;
@@ -29,7 +36,9 @@ class AuthService {
   }
 
   Future<bool> login(String email, String password) async {
-    final user = await DatabaseHelper.instance.getUserByEmail(email);
+    final user = await DatabaseHelper.instance.getUserByIdentifier(
+      email.trim(),
+    );
     if (user != null) {
       final storedHash = user[DatabaseHelper.columnPasswordHash] as String?;
       if (storedHash == _hashPassword(password)) {
@@ -47,8 +56,10 @@ class AuthService {
   Future<bool> loginWithBiometrics(String email) async {
     final success = await _promptBiometrics('Login to your T-Shirt account');
     if (success) {
-      final user = await DatabaseHelper.instance.getUserByEmail(email);
-      if (user != null) {
+      final user = await DatabaseHelper.instance.getUserByIdentifier(
+        email.trim(),
+      );
+      if (user != null && user[DatabaseHelper.columnBiometricRegistered] == 1) {
         // Establish the authenticated session securely
         await _secureStorage.write(
           key: 'session_token',

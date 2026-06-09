@@ -142,7 +142,7 @@ class _MainScreenState extends State<MainScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.auto_awesome),
-            tooltip: 'AI Design Assistant',
+            tooltip: 'AI Assistant',
             onPressed: () {
               Navigator.push(
                 context,
@@ -187,9 +187,18 @@ class _MainScreenState extends State<MainScreen> {
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Branches'),
-          BottomNavigationBarItem(icon: Icon(Icons.videogame_asset), label: 'Minigame'),
-          BottomNavigationBarItem(icon: Icon(Icons.shopping_cart), label: 'Checkout'),
-          BottomNavigationBarItem(icon: Icon(Icons.feedback), label: 'Feedback'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.videogame_asset),
+            label: 'Minigame',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.shopping_cart),
+            label: 'Checkout',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.feedback),
+            label: 'Feedback',
+          ),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           BottomNavigationBarItem(icon: Icon(Icons.logout), label: 'Logout'),
         ],
@@ -228,7 +237,7 @@ class _ProfileTabState extends State<ProfileTab> {
 
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
-  
+
   String _username = 'Loading...';
   String _email = '';
   bool _isBiometricRegistered = false;
@@ -272,7 +281,7 @@ class _ProfileTabState extends State<ProfileTab> {
 
   Future<void> _saveProfile() async {
     if (_userId == null) return;
-    
+
     final updatedData = {
       DatabaseHelper.columnUserId: _userId,
       DatabaseHelper.columnPhone: _phoneController.text.trim(),
@@ -281,7 +290,7 @@ class _ProfileTabState extends State<ProfileTab> {
 
     await DatabaseHelper.instance.updateUser(updatedData);
     setState(() => _isEditing = false);
-    
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profile updated successfully!')),
@@ -313,9 +322,9 @@ class _ProfileTabState extends State<ProfileTab> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Registration error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Registration error: $e')));
       }
     }
   }
@@ -335,12 +344,9 @@ class _ProfileTabState extends State<ProfileTab> {
             _username,
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
-          Text(
-            _email,
-            style: const TextStyle(color: Colors.grey),
-          ),
+          Text(_email, style: const TextStyle(color: Colors.grey)),
           const SizedBox(height: 32),
-          
+
           TextField(
             controller: _phoneController,
             enabled: _isEditing,
@@ -352,7 +358,7 @@ class _ProfileTabState extends State<ProfileTab> {
             keyboardType: TextInputType.phone,
           ),
           const SizedBox(height: 16),
-          
+
           TextField(
             controller: _addressController,
             enabled: _isEditing,
@@ -379,7 +385,7 @@ class _ProfileTabState extends State<ProfileTab> {
               minimumSize: const Size.fromHeight(50),
             ),
           ),
-          
+
           const SizedBox(height: 16),
           if (_isDeviceSupported)
             OutlinedButton.icon(
@@ -388,11 +394,15 @@ class _ProfileTabState extends State<ProfileTab> {
                 _isBiometricRegistered ? Icons.check_circle : Icons.fingerprint,
               ),
               label: Text(
-                _isBiometricRegistered ? 'Biometric Registered' : 'Register Biometric',
+                _isBiometricRegistered
+                    ? 'Biometric Registered'
+                    : 'Register Biometric',
               ),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(50),
-                foregroundColor: _isBiometricRegistered ? Colors.grey : Colors.green,
+                foregroundColor: _isBiometricRegistered
+                    ? Colors.grey
+                    : Colors.green,
               ),
             ),
         ],

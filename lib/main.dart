@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:tpm_ta/screens/login_screen.dart';
 import 'package:tpm_ta/screens/main_screen.dart';
+import 'package:tpm_ta/services/database_helper.dart';
 import 'package:tpm_ta/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService().init(); // Initialize the notification service
+  await DatabaseHelper.instance.init();
   const secureStorage = FlutterSecureStorage();
   final sessionToken = await secureStorage.read(key: 'session_token');
 
@@ -22,7 +24,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'T-Shirt Studio',
-      theme: ThemeData(colorScheme: .fromSeed(seedColor: Colors.deepPurple)),
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+      ),
       home: initialSessionToken != null
           ? const MainScreen()
           : const LoginScreen(),

@@ -11,7 +11,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final AuthService _authService = AuthService();
   bool _isLoading = false;
@@ -21,21 +21,21 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _usernameController.addListener(_onUsernameChanged);
+    _emailController.addListener(_onEmailChanged);
   }
 
-  void _onUsernameChanged() {
-    _checkBiometricStatusForEmail(); // Fire and forget the async check
+  void _onEmailChanged() {
+    _checkBiometricStatusForIdentifier(); // Fire and forget the async check
   }
 
-  Future<void> _checkBiometricStatusForEmail() async {
-    final email = _usernameController.text.trim();
-    if (email.isEmpty) {
+  Future<void> _checkBiometricStatusForIdentifier() async {
+    final identifier = _emailController.text.trim();
+    if (identifier.isEmpty) {
       if (_showBiometricButton) setState(() => _showBiometricButton = false);
       return;
     }
 
-    final user = await DatabaseHelper.instance.getUserByEmail(email);
+    final user = await DatabaseHelper.instance.getUserByIdentifier(identifier);
     final bool isEnabled =
         user != null && user[DatabaseHelper.columnBiometricRegistered] == 1;
 
@@ -47,7 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handlePasswordAction() async {
-    final email = _usernameController.text.trim();
+    final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
@@ -101,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleBiometricLogin() async {
-    final email = _usernameController.text.trim();
+    final email = _emailController.text.trim();
 
     setState(() => _isLoading = true);
     final success = await _authService.loginWithBiometrics(email);
@@ -122,8 +122,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _usernameController.removeListener(_onUsernameChanged);
-    _usernameController.dispose();
+    _emailController.removeListener(_onEmailChanged);
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -147,9 +147,9 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 48),
               TextField(
-                controller: _usernameController,
+                controller: _emailController,
                 decoration: const InputDecoration(
-                  labelText: 'Email / Username',
+                  labelText: 'Email',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.person),
                 ),

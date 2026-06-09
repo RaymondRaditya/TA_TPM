@@ -40,7 +40,8 @@ class _HomeTabState extends State<HomeTab> {
               .map(
                 (item) => {
                   'name': item['title'],
-                  'image': item['image'], // Correctly binding image URL
+                  // Use blank template mockup image instead of actual product model photo
+                  'image': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Jersey_white.svg/500px-Jersey_white.svg.png',
                   'price': (item['price'] * 15600)
                       .toInt(), // Convert USD to IDR
                 },
@@ -203,13 +204,21 @@ class _HomeTabState extends State<HomeTab> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: product['image'] != null
-                    ? Image.network(
-                        product['image'],
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) => _buildHologramPlaceholder(),
-                      )
-                    : _buildHologramPlaceholder(),
+                child: Container(
+                  color: Colors.grey.shade100, // Light grey background to make white shirt stand out
+                  padding: const EdgeInsets.all(8.0),
+                  child: product['image'] != null
+                      ? Image.network(
+                          product['image'],
+                          headers: const {
+                            'User-Agent':
+                                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+                          },
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => _buildHologramPlaceholder(),
+                        )
+                      : _buildHologramPlaceholder(),
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.all(12.0),
@@ -266,46 +275,88 @@ class DesignPreviewScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const SizedBox(height: 40),
-              Text(productName, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 40),
-              // Scope Fix: Show SCREEN PRINTING PLACEMENT (canvas zone) only
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Text(
+                  productName,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Show garment mockup container
               Container(
-                width: 250,
-                height: 200,
+                width: 260,
+                height: 260,
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.blueAccent, width: 2, style: BorderStyle.solid),
-                  color: Colors.white,
-                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)],
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade300),
                 ),
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    // Print Zone Label
-                    Positioned(
-                      top: 5,
-                      child: Text('PRINT ZONE (20x30cm)', 
-                        style: TextStyle(color: Colors.blueAccent.withValues(alpha: 0.5), fontSize: 10)),
+                    Image.network(
+                      'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Jersey_white.svg/500px-Jersey_white.svg.png',
+                      headers: const {
+                        'User-Agent':
+                            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+                      },
+                      fit: BoxFit.contain,
                     ),
-                    // The Design
-                    const Icon(Icons.checkroom, size: 100, color: Colors.deepPurple),
-                    const Positioned(
-                      bottom: 40,
-                      child: Text('YOUR DESIGN HERE', 
-                        style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                    Container(
+                      width: 120,
+                      height: 140,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.deepPurple.withOpacity(0.5), style: BorderStyle.solid),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'PRINT ZONE',
+                        style: TextStyle(
+                          color: Colors.deepPurple.withOpacity(0.6),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => Scaffold(
+                        appBar: AppBar(title: const Text('Design Your Shirt')),
+                        body: const TShirtCanvasScreen(),
+                      ),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.design_services),
+                label: const Text('Kustomisasi & Mulai Desain'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepPurple,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+              const SizedBox(height: 16),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 32.0),
                 child: Text(
-                  'This preview shows the exact printable region on the shirt fabric.',
+                  'Pratinjau ini menunjukkan area sablon polos pada pakaian. Anda bisa mengkustomisasi sesuka hati.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
                 ),
               ),
+              const SizedBox(height: 24),
             ],
           ),
         ),

@@ -1,15 +1,15 @@
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
+import 'dart:math';
+
+import 'package:hive_flutter/hive_flutter.dart';
 
 class DatabaseHelper {
-  static const _databaseName = "tshirt_app.db";
-  static const _databaseVersion = 3;
+  static const _usersBoxName = 'users';
+  static const _designsBoxName = 'saved_designs';
+  static const _metaBoxName = 'meta';
+  static const _lastUserIdKey = 'last_user_id';
+  static const _lastDesignIdKey = 'last_design_id';
 
-  // =======================================================
-  //                    TABLE SCHEMAS
-  // =======================================================
-
-  // --- Users Table ---
+  // --- Users Fields ---
   static const tableUsers = 'users';
   static const columnUserId = 'id';
   static const columnUsername = 'username';
@@ -19,7 +19,7 @@ class DatabaseHelper {
   static const columnPhone = 'phone';
   static const columnAddress = 'address';
 
-  // --- Saved Designs Table ---
+  // --- Saved Designs Fields ---
   static const tableSavedDesigns = 'saved_designs';
   static const columnDesignId = 'id';
   static const columnDesignUserId = 'user_id';
@@ -27,78 +27,68 @@ class DatabaseHelper {
   static const columnLayoutJsonData = 'layout_json_data';
   static const columnCreatedAt = 'created_at';
 
-  // =======================================================
-  //              SINGLETON INITIALIZATION
-  // =======================================================
-
-  // Private constructor to enforce singleton pattern
   DatabaseHelper._privateConstructor();
   static final DatabaseHelper instance = DatabaseHelper._privateConstructor();
 
-  static Database? _database;
+  Box<Map>? _usersBox;
+  Box<Map>? _designsBox;
+  Box<int>? _metaBox;
+  bool _isInitialized = false;
 
-  // Returns the single active database instance
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDatabase();
-    return _database!;
+  Future<void> init() async {
+    if (_isInitialized) return;
+    await Hive.initFlutter();
+    _usersBox = await Hive.openBox<Map>(_usersBoxName);
+    _designsBox = await Hive.openBox<Map>(_designsBoxName);
+    _metaBox = await Hive.openBox<int>(_metaBoxName);
+    _isInitialized = true;
   }
 
-  Future<Database> _initDatabase() async {
-    String path = join(await getDatabasesPath(), _databaseName);
-    return await openDatabase(
-      path,
-      version: _databaseVersion,
-      onConfigure: _onConfigure,
-      onCreate: _onCreate,
-      onUpgrade: _onUpgrade,
-    );
-  }
-
-  Future _onConfigure(Database db) async {
-    // Enable foreign keys for dependent tables
-    await db.execute('PRAGMA foreign_keys = ON');
-  }
-
-  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      await db.execute(
-        'ALTER TABLE $tableUsers ADD COLUMN $columnBiometricRegistered INTEGER NOT NULL DEFAULT 0',
-      );
-    }
-    if (oldVersion < 3) {
-      await db.execute(
-        'ALTER TABLE $tableUsers ADD COLUMN $columnPhone TEXT',
-      );
-      await db.execute(
-        'ALTER TABLE $tableUsers ADD COLUMN $columnAddress TEXT',
-      );
+  Future<void> _ensureInitialized() async {
+    if (!_isInitialized) {
+      await init();
     }
   }
 
-  Future _onCreate(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE $tableUsers (
-        $columnUserId INTEGER PRIMARY KEY AUTOINCREMENT,
-        $columnUsername TEXT NOT NULL UNIQUE,
-        $columnEmail TEXT UNIQUE,
-        $columnPasswordHash TEXT,
-        $columnBiometricRegistered INTEGER NOT NULL DEFAULT 0,
-        $columnPhone TEXT,
-        $columnAddress TEXT
-      )
-    ''');
+  int _nextId(Box<Map> box, String metaKey) {
+    final stored = _metaBox?.get(metaKey);
+    if (stored != null) {
+      final next = stored + 1;
+      _metaBox?.put(metaKey, next);
+      return next;
+    }
 
-    await db.execute('''
-      CREATE TABLE $tableSavedDesigns (
-        $columnDesignId INTEGER PRIMARY KEY AUTOINCREMENT,
-        $columnDesignUserId INTEGER NOT NULL,
-        $columnDesignName TEXT NOT NULL,
-        $columnLayoutJsonData TEXT NOT NULL,
-        $columnCreatedAt TEXT NOT NULL,
-        FOREIGN KEY ($columnDesignUserId) REFERENCES $tableUsers ($columnUserId) ON DELETE CASCADE
-      )
-    ''');
+    final keys = box.keys.whereType<int>();
+    final maxId = keys.isEmpty ? 0 : keys.reduce(max);
+    final next = maxId + 1;
+    _metaBox?.put(metaKey, next);
+    return next;
+  }
+
+  bool _emailExists(String email, {int? excludeId}) {
+    final normalized = email.trim();
+    for (final key in _usersBox!.keys) {
+      if (excludeId != null && key == excludeId) continue;
+      final user = _usersBox!.get(key);
+      if (user == null) continue;
+      if ((user[columnEmail] as String?)?.trim() == normalized) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _usernameExists(String username, {int? excludeId}) {
+    final normalized = username.trim();
+    for (final key in _usersBox!.keys) {
+      if (excludeId != null && key == excludeId) continue;
+      final user = _usersBox!.get(key);
+      if (user == null) continue;
+      if ((user[columnUsername] as String?)?.trim() == normalized) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // =======================================================
@@ -106,68 +96,112 @@ class DatabaseHelper {
   // =======================================================
 
   Future<int> insertUser(Map<String, dynamic> row) async {
-    Database db = await instance.database;
-    return await db.insert(tableUsers, row);
+    await _ensureInitialized();
+
+    final email = row[columnEmail] as String?;
+    if (email == null || email.trim().isEmpty) {
+      throw ArgumentError('Email is required');
+    }
+    if (_emailExists(email)) {
+      throw StateError('Email already exists');
+    }
+
+    final username = row[columnUsername] as String?;
+    if (username != null && _usernameExists(username)) {
+      throw StateError('Username already exists');
+    }
+
+    final id = row[columnUserId] as int? ?? _nextId(_usersBox!, _lastUserIdKey);
+    final record = Map<String, dynamic>.from(row)
+      ..[columnUserId] = id
+      ..putIfAbsent(columnBiometricRegistered, () => 0);
+
+    await _usersBox!.put(id, record);
+    return id;
   }
 
   Future<Map<String, dynamic>?> getUser(int id) async {
-    Database db = await instance.database;
-    List<Map<String, dynamic>> results = await db.query(
-      tableUsers,
-      where: '$columnUserId = ?',
-      whereArgs: [id],
-    );
-    return results.isNotEmpty ? results.first : null;
+    await _ensureInitialized();
+    final user = _usersBox!.get(id);
+    return user == null ? null : Map<String, dynamic>.from(user);
   }
 
   Future<Map<String, dynamic>?> getUserByUsername(String username) async {
-    Database db = await instance.database;
-    List<Map<String, dynamic>> results = await db.query(
-      tableUsers,
-      where: '$columnUsername = ?',
-      whereArgs: [username],
-    );
-    return results.isNotEmpty ? results.first : null;
+    await _ensureInitialized();
+    final normalized = username.trim();
+    for (final key in _usersBox!.keys) {
+      final user = _usersBox!.get(key);
+      if (user == null) continue;
+      if ((user[columnUsername] as String?)?.trim() == normalized) {
+        return Map<String, dynamic>.from(user);
+      }
+    }
+    return null;
   }
 
   Future<Map<String, dynamic>?> getUserByEmail(String email) async {
-    Database db = await instance.database;
-    List<Map<String, dynamic>> results = await db.query(
-      tableUsers,
-      where: '$columnEmail = ?',
-      whereArgs: [email],
-    );
-    return results.isNotEmpty ? results.first : null;
+    await _ensureInitialized();
+    final normalized = email.trim();
+    for (final key in _usersBox!.keys) {
+      final user = _usersBox!.get(key);
+      if (user == null) continue;
+      if ((user[columnEmail] as String?)?.trim() == normalized) {
+        return Map<String, dynamic>.from(user);
+      }
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> getUserByIdentifier(String identifier) async {
+    await _ensureInitialized();
+    final normalized = identifier.trim();
+    for (final key in _usersBox!.keys) {
+      final user = _usersBox!.get(key);
+      if (user == null) continue;
+      if ((user[columnEmail] as String?)?.trim() == normalized ||
+          (user[columnUsername] as String?)?.trim() == normalized) {
+        return Map<String, dynamic>.from(user);
+      }
+    }
+    return null;
   }
 
   Future<int> updateUser(Map<String, dynamic> row) async {
-    Database db = await instance.database;
-    int id = row[columnUserId];
-    return await db.update(
-      tableUsers,
-      row,
-      where: '$columnUserId = ?',
-      whereArgs: [id],
-    );
+    await _ensureInitialized();
+    final id = row[columnUserId];
+    if (id is! int) return 0;
+    final existing = _usersBox!.get(id);
+    if (existing == null) return 0;
+
+    final nextEmail = row[columnEmail] as String?;
+    if (nextEmail != null && _emailExists(nextEmail, excludeId: id)) {
+      throw StateError('Email already exists');
+    }
+    final nextUsername = row[columnUsername] as String?;
+    if (nextUsername != null && _usernameExists(nextUsername, excludeId: id)) {
+      throw StateError('Username already exists');
+    }
+
+    final updated = Map<String, dynamic>.from(existing)..addAll(row);
+    await _usersBox!.put(id, updated);
+    return 1;
   }
 
   Future<int> deleteUser(int id) async {
-    Database db = await instance.database;
-    return await db.delete(
-      tableUsers,
-      where: '$columnUserId = ?',
-      whereArgs: [id],
-    );
+    await _ensureInitialized();
+    if (!_usersBox!.containsKey(id)) return 0;
+    await _usersBox!.delete(id);
+    return 1;
   }
 
   Future<int> updateBiometricStatus(int userId, bool isEnabled) async {
-    Database db = await instance.database;
-    return await db.update(
-      tableUsers,
-      {columnBiometricRegistered: isEnabled ? 1 : 0},
-      where: '$columnUserId = ?',
-      whereArgs: [userId],
-    );
+    await _ensureInitialized();
+    final existing = _usersBox!.get(userId);
+    if (existing == null) return 0;
+    final updated = Map<String, dynamic>.from(existing)
+      ..[columnBiometricRegistered] = isEnabled ? 1 : 0;
+    await _usersBox!.put(userId, updated);
+    return 1;
   }
 
   // =======================================================
@@ -175,46 +209,48 @@ class DatabaseHelper {
   // =======================================================
 
   Future<int> insertDesign(Map<String, dynamic> row) async {
-    Database db = await instance.database;
-    return await db.insert(tableSavedDesigns, row);
+    await _ensureInitialized();
+    final id =
+        row[columnDesignId] as int? ?? _nextId(_designsBox!, _lastDesignIdKey);
+    final record = Map<String, dynamic>.from(row)..[columnDesignId] = id;
+    await _designsBox!.put(id, record);
+    return id;
   }
 
   Future<Map<String, dynamic>?> getDesign(int id) async {
-    Database db = await instance.database;
-    List<Map<String, dynamic>> results = await db.query(
-      tableSavedDesigns,
-      where: '$columnDesignId = ?',
-      whereArgs: [id],
-    );
-    return results.isNotEmpty ? results.first : null;
+    await _ensureInitialized();
+    final design = _designsBox!.get(id);
+    return design == null ? null : Map<String, dynamic>.from(design);
   }
 
   Future<List<Map<String, dynamic>>> getDesignsByUserId(int userId) async {
-    Database db = await instance.database;
-    return await db.query(
-      tableSavedDesigns,
-      where: '$columnDesignUserId = ?',
-      whereArgs: [userId],
-    );
+    await _ensureInitialized();
+    final results = <Map<String, dynamic>>[];
+    for (final key in _designsBox!.keys) {
+      final design = _designsBox!.get(key);
+      if (design == null) continue;
+      if (design[columnDesignUserId] == userId) {
+        results.add(Map<String, dynamic>.from(design));
+      }
+    }
+    return results;
   }
 
   Future<int> updateDesign(Map<String, dynamic> row) async {
-    Database db = await instance.database;
-    int id = row[columnDesignId];
-    return await db.update(
-      tableSavedDesigns,
-      row,
-      where: '$columnDesignId = ?',
-      whereArgs: [id],
-    );
+    await _ensureInitialized();
+    final id = row[columnDesignId];
+    if (id is! int) return 0;
+    final existing = _designsBox!.get(id);
+    if (existing == null) return 0;
+    final updated = Map<String, dynamic>.from(existing)..addAll(row);
+    await _designsBox!.put(id, updated);
+    return 1;
   }
 
   Future<int> deleteDesign(int id) async {
-    Database db = await instance.database;
-    return await db.delete(
-      tableSavedDesigns,
-      where: '$columnDesignId = ?',
-      whereArgs: [id],
-    );
+    await _ensureInitialized();
+    if (!_designsBox!.containsKey(id)) return 0;
+    await _designsBox!.delete(id);
+    return 1;
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 
 class FallingItem {
   final String id;
@@ -26,10 +27,81 @@ class _MiniGameScreenState extends State<MiniGameScreen> {
   Timer? _countdown;
   final Random _random = Random();
 
+  late StreamSubscription<AccelerometerEvent> _accelSubscription;
+  DateTime? _lastShakeTime;
+  static const int _shakeThreshold = 30;
+  static const int _shakeCooldown = 1000; // milliseconds
+  final List<String> _vouchers = [];
+
   @override
   void initState() {
     super.initState();
     _startGame();
+    _initializeShakeDetection();
+  }
+
+  void _initializeShakeDetection() {
+    _accelSubscription = accelerometerEventStream().listen((
+      AccelerometerEvent event,
+    ) {
+      _detectShake(event);
+    });
+  }
+
+  void _detectShake(AccelerometerEvent event) {
+    final now = DateTime.now();
+    if (_lastShakeTime != null &&
+        now.difference(_lastShakeTime!).inMilliseconds < _shakeCooldown) {
+      return;
+    }
+
+    final magnitude = sqrt(
+      event.x * event.x + event.y * event.y + event.z * event.z,
+    );
+
+    if (magnitude > _shakeThreshold && _timeLeft > 0) {
+      _lastShakeTime = now;
+      _onShakeDetected();
+    }
+  }
+
+  void _onShakeDetected() {
+    final voucherTypes = [
+      'DISCOUNT_10',
+      'DISCOUNT_15',
+      'DISCOUNT_20',
+      'FREE_SHIRT',
+    ];
+    final randomVoucher = voucherTypes[_random.nextInt(voucherTypes.length)];
+    final voucherText = _getVoucherText(randomVoucher);
+
+    setState(() {
+      _vouchers.add(randomVoucher);
+      _score += 5;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Shake detected! Got voucher: $voucherText 🎉'),
+        duration: const Duration(seconds: 2),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  String _getVoucherText(String voucherCode) {
+    switch (voucherCode) {
+      case 'DISCOUNT_10':
+        return '10% Discount';
+      case 'DISCOUNT_15':
+        return '15% Discount';
+      case 'DISCOUNT_20':
+        return '20% Discount';
+      case 'FREE_SHIRT':
+        return 'Free Shirt';
+      default:
+        return 'Mystery Voucher';
+    }
   }
 
   void _startGame() {
@@ -76,27 +148,42 @@ class _MiniGameScreenState extends State<MiniGameScreen> {
     _countdown?.cancel();
     _spawnLoop?.cancel();
     _gameLoop?.cancel();
+    _accelSubscription.cancel();
+
+    final voucherList = _vouchers.map(_getVoucherText).join(', ');
+    final won = _score > 10;
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
-        final won = _score > 10;
         return AlertDialog(
           title: const Text('Time is up!'),
-          content: Text(
-            won
-                ? 'You scored $_score! You won a 10% discount!'
-                : 'You scored $_score. Try again next time!',
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                won
+                    ? 'You scored $_score! You won a 10% discount!'
+                    : 'You scored $_score. Try again next time!',
+              ),
+              if (_vouchers.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Text(
+                  'Vouchers from shake:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(voucherList),
+              ],
+            ],
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(ctx); // Close the dialog
-                Navigator.pop(
-                  context,
-                  won ? 'DISCOUNT_10' : null,
-                ); // Return to checkout
+                Navigator.pop(ctx);
+                Navigator.pop(context, won ? 'DISCOUNT_10' : null);
               },
               child: const Text('Collect'),
             ),
@@ -118,6 +205,7 @@ class _MiniGameScreenState extends State<MiniGameScreen> {
     _countdown?.cancel();
     _spawnLoop?.cancel();
     _gameLoop?.cancel();
+    _accelSubscription.cancel();
     super.dispose();
   }
 
@@ -172,6 +260,34 @@ class _MiniGameScreenState extends State<MiniGameScreen> {
               ],
             ),
           ),
+
+          // Shake hint
+          if (_vouchers.isEmpty)
+            Positioned(
+              bottom: 24,
+              left: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.vibration, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Tip: Shake your phone to get bonus vouchers!',
+                        style: TextStyle(fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

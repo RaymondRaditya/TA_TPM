@@ -1,44 +1,50 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:dotenv/dotenv.dart';
+
+final env = DotEnv()..load();
 
 class AIChatService {
-  // NOTE: Replace this with your actual Gemini API Key from Google AI Studio.
-  static const String _apiKey = 'YOUR_GEMINI_API_KEY';
-
-  // Using gemini-1.5-flash as it is fast and suitable for short creative tasks
-  static const String _apiUrl =
-      'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=$_apiKey';
+  // Retrieve the Groq configuration from environment variables
+  final String _groqUrl = env['_groqUrl'] ?? '';
+  final String _apiKey = env['_apiKey'] ?? '';
 
   Future<String> askDesignAssistant(String query) async {
+    if (_apiKey.isEmpty || _groqUrl.isEmpty) {
+      return 'Error: Groq configuration (URL/Key) is missing in .env file.';
+    }
+
     try {
       final response = await http.post(
-        Uri.parse(_apiUrl),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse(_groqUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_apiKey',
+        },
         body: jsonEncode({
-          "system_instruction": {
-            "parts": {
-              "text":
-                  "You are an expert T-shirt design assistant. Keep answers short and creative.",
-            },
-          },
-          "contents": [
+          'model': 'llama-3.1-8b-instant',
+          'messages': [
             {
-              "parts": [
-                {"text": query},
-              ],
+              'role': 'system',
+              'content': 'You are an expert T-shirt design assistant. Keep answers short and creative.'
+            },
+            {
+              'role': 'user',
+              'content': query
             },
           ],
+          'temperature': 0.7,
         }),
       );
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        // Parse the standard Gemini response JSON structure
-        final textResponse =
-            data['candidates'][0]['content']['parts'][0]['text'];
-        return textResponse?.toString().trim() ?? 'No response received.';
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        final content = data['choices'][0]['message']['content'];
+        return content?.toString().trim() ?? 'No response received from Groq.';
       } else {
-        return 'Error communicating with AI: ${response.statusCode}';
+        final errorData = jsonDecode(utf8.decode(response.bodyBytes));
+        final errorMessage = errorData['error']?['message'] ?? 'Unknown API error';
+        return 'Error (${response.statusCode}): $errorMessage';
       }
     } catch (e) {
       return 'An exception occurred while reaching the design assistant: $e';

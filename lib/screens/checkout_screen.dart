@@ -3,6 +3,14 @@ import 'package:tpm_ta/services/notification_service.dart';
 import 'package:tpm_ta/screens/mini_game_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
+  // Static variables to pass custom design parameters from Canvas screen
+  static double checkoutPrice = 150000.0;
+  static String checkoutItemName = 'Custom T-Shirt (Classic)';
+  static String checkoutItemType = 'T-Shirt';
+  static String checkoutItemSize = 'L';
+  static int checkoutStickerCount = 1;
+  static List<String> checkoutStickerUrls = [];
+
   const CheckoutScreen({super.key});
 
   @override
@@ -10,7 +18,7 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
-  final double _basePriceIdr = 150000.0;
+  double get _basePriceIdr => CheckoutScreen.checkoutPrice;
   String selectedCurrency = 'IDR';
   bool _hasDiscount = false;
   final Map<String, double> exchangeRates = {
@@ -95,13 +103,35 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               'Order Summary',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+            // Custom item details display
+            Container(
+              padding: const EdgeInsets.all(12),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    CheckoutScreen.checkoutItemName,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 6),
+                  Text('Tipe: ${CheckoutScreen.checkoutItemType} | Ukuran: ${CheckoutScreen.checkoutItemSize}'),
+                  Text('Jumlah Sablon: ${CheckoutScreen.checkoutStickerCount}'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'T-Shirt Base Price:',
-                  style: TextStyle(fontSize: 18),
+                Text(
+                  'Total Base Price (${CheckoutScreen.checkoutItemType}):',
+                  style: const TextStyle(fontSize: 18),
                 ),
                 DropdownButton<String>(
                   value: selectedCurrency,
@@ -206,13 +236,32 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             const Spacer(),
             ElevatedButton.icon(
               onPressed: () async {
-                await NotificationService().showNotification(
-                  0,
-                  'Order Confirmed!',
-                  'Your T-Shirt order has been successfully placed.',
-                );
+                try {
+                  await NotificationService().showNotification(
+                    0,
+                    'Order Confirmed!',
+                    'Your ${CheckoutScreen.checkoutItemType} order has been successfully placed.',
+                  );
+                } catch (e) {
+                  debugPrint('Notification failed: $e');
+                }
                 if (context.mounted) {
-                  Navigator.pop(context);
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Pembayaran Berhasil'),
+                      content: Text('Terima kasih! Pesanan ${CheckoutScreen.checkoutItemName} Anda telah berhasil diproses.'),
+                      actions: [
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context); // close dialog
+                            Navigator.pop(context); // go back from checkout screen
+                          },
+                          child: const Text('OK'),
+                        )
+                      ],
+                    ),
+                  );
                 }
               },
               icon: const Icon(Icons.check_circle, size: 24),
