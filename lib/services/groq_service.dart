@@ -1,13 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:dotenv/dotenv.dart';
-
-final env = DotEnv()..load();
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class GroqService {
   // Static API key configured by the user
-  final String _groqUrl = env['_groqUrl'] ?? '';
-  final String _apiKey = env['_apiKey'] ?? '';
+  final String _groqUrl = dotenv.env['_groqUrl'] ?? '';
+  final String _apiKey = dotenv.env['_apiKey'] ?? '';
 
   // Available Groq models for custom design assistance
   static const List<String> models = [
@@ -26,6 +24,9 @@ class GroqService {
     String? apiKey,
     String model = 'llama-3.1-8b-instant',
   }) async {
+    if (_groqUrl.isEmpty) {
+      return 'Error: Groq URL is not configured. Please check your .env file.';
+    }
     try {
       final response = await http.post(
         Uri.parse(_groqUrl),

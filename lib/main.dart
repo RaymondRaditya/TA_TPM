@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:tpm_ta/screens/login_screen.dart';
 import 'package:tpm_ta/screens/main_screen.dart';
 import 'package:tpm_ta/services/database_helper.dart';
@@ -7,6 +8,7 @@ import 'package:tpm_ta/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env"); // Load environment variables
   await NotificationService().init(); // Initialize the notification service
   await DatabaseHelper.instance.init();
   const secureStorage = FlutterSecureStorage();

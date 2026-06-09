@@ -116,7 +116,7 @@ class _MiniGameScreenState extends State<MiniGameScreen> {
       2,
       isWin ? 'Game Selesai: Anda Menang! 🎉' : 'Game Selesai: Coba Lagi 🎮',
       isWin 
-          ? 'Selamat! Anda berhasil menempatkan $_score desain dan mendapat diskon 10%.' 
+          ? 'Selamat! Anda berhasil menempatkan $_score desain.' 
           : 'Waktu habis! Anda menempatkan $_score desain. Main lagi yuk!',
     );
 
@@ -128,14 +128,14 @@ class _MiniGameScreenState extends State<MiniGameScreen> {
           title: Text(isWin ? 'Selamat!' : 'Waktu Habis'),
           content: Text(
             isWin
-                ? 'Anda berhasil menempatkan $_score desain! Anda mendapatkan diskon 10%.'
-                : 'Anda hanya menempatkan $_score desain. Coba lagi untuk dapat diskon!',
+                ? 'Anda berhasil menempatkan $_score desain!'
+                : 'Anda hanya menempatkan $_score desain.',
           ),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.pop(ctx);
-                Navigator.pop(context, isWin ? 'DISCOUNT_10' : null);
+                Navigator.pop(context);
               },
               child: const Text('OK'),
             ),

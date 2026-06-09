@@ -1,13 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:dotenv/dotenv.dart';
-
-final env = DotEnv()..load();
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AIChatService {
   // Retrieve the Groq configuration from environment variables
-  final String _groqUrl = env['_groqUrl'] ?? '';
-  final String _apiKey = env['_apiKey'] ?? '';
+  final String _groqUrl = dotenv.env['_groqUrl'] ?? '';
+  final String _apiKey = dotenv.env['_apiKey'] ?? '';
 
   Future<String> askDesignAssistant(String query) async {
     if (_apiKey.isEmpty || _groqUrl.isEmpty) {

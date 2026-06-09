@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tpm_ta/screens/main_screen.dart';
 import 'package:tpm_ta/services/notification_service.dart';
-import 'package:tpm_ta/screens/mini_game_screen.dart';
 import 'package:tpm_ta/services/database_helper.dart';
 import 'package:tpm_ta/services/currency_service.dart';
 
@@ -16,7 +15,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   List<Map<String, dynamic>> _cartItems = [];
   bool _isLoading = true;
   String selectedCurrency = 'IDR';
-  bool _hasDiscount = false;
   final CurrencyService _currencyService = CurrencyService();
 
   @override
@@ -48,23 +46,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return total;
   }
 
-  double get _finalPriceIdr => _hasDiscount ? _totalPriceIdr * 0.9 : _totalPriceIdr;
-
   Future<void> _removeItem(int id) async {
     await DatabaseHelper.instance.deleteCartItem(id);
     _loadCartAndRates();
-  }
-
-  Future<void> _playMiniGame() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const MiniGameScreen()),
-    );
-    if (result == 'DISCOUNT_10') {
-      setState(() {
-        _hasDiscount = true;
-      });
-    }
   }
 
   Map<String, String> _getEstimatedDeliveryTimes() {
@@ -219,26 +203,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             ),
                           ],
                         ),
-                        if (_hasDiscount) ...[
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Diskon 10%:', style: TextStyle(fontSize: 16, color: Colors.green)),
-                              Text(
-                                '- ${_currencyService.formatCurrency(selectedCurrency, _currencyService.convertFromIdr(_totalPriceIdr * 0.1, selectedCurrency))}',
-                                style: const TextStyle(fontSize: 16, color: Colors.green, fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                        ],
                         const Divider(height: 24),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text('Grand Total:', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                             Text(
-                              _currencyService.formatCurrency(selectedCurrency, _currencyService.convertFromIdr(_finalPriceIdr, selectedCurrency)),
+                              _currencyService.formatCurrency(selectedCurrency, _currencyService.convertFromIdr(_totalPriceIdr, selectedCurrency)),
                               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.deepPurple),
                             ),
                           ],
@@ -246,19 +217,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       ],
                     ),
                   ),
-                  if (!_hasDiscount) ...[
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: _playMiniGame,
-                      icon: const Icon(Icons.videogame_asset),
-                      label: const Text('Main Mini-Game untuk Diskon 10%!'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
-                  ],
                   const SizedBox(height: 32),
                   const Text(
                     'Estimated Delivery Time',
