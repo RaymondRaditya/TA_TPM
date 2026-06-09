@@ -8,6 +8,7 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'package:tpm_ta/screens/parallax_preview_screen.dart';
 import 'package:tpm_ta/screens/checkout_screen.dart';
 import 'package:tpm_ta/services/database_helper.dart';
+import 'package:tpm_ta/services/notification_service.dart';
 
 class TShirtCanvasScreen extends StatefulWidget {
   const TShirtCanvasScreen({super.key});
@@ -52,7 +53,7 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
       'isLocal': false,
       'prompt': '',
       'isFront': true,
-    }
+    },
   ];
   int _selectedStickerIndex = 0; // Currently selected sticker to customize
   bool _isGeneratingSticker = false;
@@ -63,24 +64,30 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
       'type': 'T-Shirt',
       'name': 'Classic Cotton Tee',
       'basePrice': 100000.0,
-      'frontImage': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Jersey_white.svg/500px-Jersey_white.svg.png',
-      'backImage': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Jersey_white.svg/500px-Jersey_white.svg.png',
+      'frontImage':
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Jersey_white.svg/500px-Jersey_white.svg.png',
+      'backImage':
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Jersey_white.svg/500px-Jersey_white.svg.png',
       'icon': Icons.checkroom,
     },
     {
       'type': 'Hoodie',
       'name': 'Streetwear Hoodie',
       'basePrice': 160000.0,
-      'frontImage': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Jersey_white.svg/500px-Jersey_white.svg.png',
-      'backImage': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Jersey_white.svg/500px-Jersey_white.svg.png',
+      'frontImage':
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Jersey_white.svg/500px-Jersey_white.svg.png',
+      'backImage':
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Jersey_white.svg/500px-Jersey_white.svg.png',
       'icon': Icons.layers,
     },
     {
       'type': 'Jacket',
       'name': 'Custom Windbreaker',
       'basePrice': 180000.0,
-      'frontImage': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Jersey_white.svg/500px-Jersey_white.svg.png',
-      'backImage': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Jersey_white.svg/500px-Jersey_white.svg.png',
+      'frontImage':
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Jersey_white.svg/500px-Jersey_white.svg.png',
+      'backImage':
+          'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Jersey_white.svg/500px-Jersey_white.svg.png',
       'icon': Icons.filter_hdr,
     },
   ];
@@ -97,7 +104,8 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
     },
     {
       'name': 'Gaming Skull',
-      'url': 'https://www.pngmart.com/files/15/Vector-Skull-PNG-Transparent-Image.png',
+      'url':
+          'https://www.pngmart.com/files/15/Vector-Skull-PNG-Transparent-Image.png',
     },
     {
       'name': 'Hot Flame',
@@ -114,7 +122,9 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
     super.initState();
 
     // Accelerometer shake color change
-    _accelSubscription = accelerometerEventStream().listen((AccelerometerEvent event) {
+    _accelSubscription = accelerometerEventStream().listen((
+      AccelerometerEvent event,
+    ) {
       final double magnitude = sqrt(
         event.x * event.x + event.y * event.y + event.z * event.z,
       );
@@ -123,7 +133,8 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
         if (now.difference(_lastShakeTime).inMilliseconds >= 1000) {
           _lastShakeTime = now;
           setState(() {
-            _tshirtColor = Colors.primaries[_random.nextInt(Colors.primaries.length)];
+            _tshirtColor =
+                Colors.primaries[_random.nextInt(Colors.primaries.length)];
           });
         }
       }
@@ -152,10 +163,12 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
   // Price Calculation Logic
   double _calculateTotalPrice() {
     // 1) Find base price for selected apparel type
-    final basePrice = _apparelTemplates.firstWhere(
-      (element) => element['type'] == _apparelType,
-      orElse: () => _apparelTemplates[0],
-    )['basePrice'] as double;
+    final basePrice =
+        _apparelTemplates.firstWhere(
+              (element) => element['type'] == _apparelType,
+              orElse: () => _apparelTemplates[0],
+            )['basePrice']
+            as double;
 
     // 2) Size surcharge
     double sizePrice = 0.0;
@@ -175,7 +188,9 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
     final prompt = _aiStickerController.text.trim();
     if (prompt.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tulis deskripsi stiker terlebih dahulu!')),
+        const SnackBar(
+          content: Text('Tulis deskripsi stiker terlebih dahulu!'),
+        ),
       );
       return;
     }
@@ -187,7 +202,7 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
       final randomSeed = Random().nextInt(999999);
       final finalUrl =
           'https://image.pollinations.ai/prompt/${Uri.encodeComponent(prompt)}?width=256&height=256&nologo=true&seed=$randomSeed';
-      
+
       _stickers[_selectedStickerIndex]['imageUrl'] = finalUrl;
       _stickers[_selectedStickerIndex]['isLocal'] = false;
       _stickers[_selectedStickerIndex]['prompt'] = prompt;
@@ -214,7 +229,9 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
     final url = _customPngController.text.trim();
     if (url.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Masukkan URL Gambar PNG terlebih dahulu!')),
+        const SnackBar(
+          content: Text('Masukkan URL Gambar PNG terlebih dahulu!'),
+        ),
       );
       return;
     }
@@ -226,7 +243,7 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
       _stickers[_selectedStickerIndex]['isLocal'] = false;
       _stickers[_selectedStickerIndex]['prompt'] = 'Custom URL';
     });
-    
+
     _customPngController.clear();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Gambar PNG berhasil diterapkan!')),
@@ -260,15 +277,17 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
       _aiStickerController.clear();
       _customPngController.clear();
     });
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Stiker/Sablon baru ditambahkan! (Biaya: +Rp 15.000)')),
+      const SnackBar(
+        content: Text('Stiker/Sablon baru ditambahkan! (Biaya: +Rp 15.000)'),
+      ),
     );
   }
 
   void _removeSticker() {
     if (_stickers.isEmpty) return;
-    
+
     setState(() {
       _stickers.removeAt(_selectedStickerIndex);
       _selectedStickerIndex = _stickers.isEmpty ? 0 : _stickers.length - 1;
@@ -284,9 +303,10 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
   void _saveToCart({bool navigateToCheckout = false}) async {
     final totalPrice = _calculateTotalPrice();
     final layoutData = jsonEncode(_stickers);
-    
+
     final cartItem = {
-      DatabaseHelper.columnCartItemName: 'Custom $_apparelType Design (${_stickers.length} Sablon)',
+      DatabaseHelper.columnCartItemName:
+          'Custom $_apparelType Design (${_stickers.length} Sablon)',
       DatabaseHelper.columnCartItemType: _apparelType,
       DatabaseHelper.columnCartItemSize: _selectedSize,
       DatabaseHelper.columnCartPrice: totalPrice,
@@ -297,15 +317,27 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
 
     try {
       await DatabaseHelper.instance.insertCartItem(cartItem);
+
+      // Show notification
+      await NotificationService().showNotification(
+        1,
+        'Item Ditambahkan',
+        'Desain $_apparelType berhasil dimasukkan ke keranjang!',
+      );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(navigateToCheckout ? 'Desain ditambahkan ke checkout!' : 'Desain disimpan ke keranjang!'),
+            content: Text(
+              navigateToCheckout
+                  ? 'Desain ditambahkan ke checkout!'
+                  : 'Desain disimpan ke keranjang!',
+            ),
             duration: const Duration(seconds: 1),
           ),
         );
       }
-      
+
       if (navigateToCheckout && mounted) {
         Navigator.push(
           context,
@@ -340,7 +372,9 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
             padding: const EdgeInsets.all(16.0),
             child: Card(
               elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
@@ -416,7 +450,10 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                     });
                   },
                   borderRadius: BorderRadius.circular(8),
-                  constraints: const BoxConstraints(minHeight: 36, minWidth: 80),
+                  constraints: const BoxConstraints(
+                    minHeight: 36,
+                    minWidth: 80,
+                  ),
                   children: const [
                     Text('Depan (Front)'),
                     Text('Belakang (Back)'),
@@ -467,8 +504,12 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                           alignment: FractionalOffset.center,
                           child: Image.network(
                             _isFrontView
-                                ? _apparelTemplates.firstWhere((t) => t['type'] == _apparelType)['frontImage']!
-                                : _apparelTemplates.firstWhere((t) => t['type'] == _apparelType)['backImage']!,
+                                ? _apparelTemplates.firstWhere(
+                                    (t) => t['type'] == _apparelType,
+                                  )['frontImage']!
+                                : _apparelTemplates.firstWhere(
+                                    (t) => t['type'] == _apparelType,
+                                  )['backImage']!,
                             headers: const {
                               'User-Agent':
                                   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
@@ -479,9 +520,10 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                             errorBuilder: (context, error, stackTrace) {
                               return Icon(
                                 _apparelTemplates.firstWhere(
-                                  (t) => t['type'] == _apparelType,
-                                  orElse: () => _apparelTemplates[0],
-                                )['icon'] as IconData,
+                                      (t) => t['type'] == _apparelType,
+                                      orElse: () => _apparelTemplates[0],
+                                    )['icon']
+                                    as IconData,
                                 size: _canvasWidth * 0.75,
                                 color: _tshirtColor,
                               );
@@ -489,13 +531,16 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                           ),
                         ),
                       ),
-                      
+
                       // Label overlay indicating current side view
                       Positioned(
                         top: 12,
                         left: 12,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.black.withOpacity(0.6),
                             borderRadius: BorderRadius.circular(4),
@@ -554,7 +599,9 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                               child: Container(
                                 decoration: BoxDecoration(
                                   border: Border.all(
-                                    color: isSelected ? Colors.purple : Colors.grey.shade400,
+                                    color: isSelected
+                                        ? Colors.purple
+                                        : Colors.grey.shade400,
                                     width: isSelected ? 3 : 1.5,
                                   ),
                                   borderRadius: BorderRadius.circular(8),
@@ -565,7 +612,10 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                                         width: currentSize - 6,
                                         height: currentSize - 6,
                                         alignment: Alignment.center,
-                                        child: const Text('Tap & Design', style: TextStyle(fontSize: 10)),
+                                        child: const Text(
+                                          'Tap & Design',
+                                          style: TextStyle(fontSize: 10),
+                                        ),
                                       )
                                     : ClipRRect(
                                         borderRadius: BorderRadius.circular(6),
@@ -586,10 +636,19 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                                                 height: currentSize - 6,
                                                 loadingBuilder: (context, child, progress) {
                                                   if (progress == null) {
-                                                    if (_isGeneratingSticker && idx == _selectedStickerIndex) {
-                                                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                        setState(() => _isGeneratingSticker = false);
-                                                      });
+                                                    if (_isGeneratingSticker &&
+                                                        idx ==
+                                                            _selectedStickerIndex) {
+                                                      WidgetsBinding.instance
+                                                          .addPostFrameCallback((
+                                                            _,
+                                                          ) {
+                                                            setState(
+                                                              () =>
+                                                                  _isGeneratingSticker =
+                                                                      false,
+                                                            );
+                                                          });
                                                     }
                                                     return child;
                                                   }
@@ -601,22 +660,38 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                                                       child: SizedBox(
                                                         width: 20,
                                                         height: 20,
-                                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                              strokeWidth: 2,
+                                                            ),
                                                       ),
                                                     ),
                                                   );
                                                 },
                                                 errorBuilder: (context, err, stack) {
-                                                  if (_isGeneratingSticker && idx == _selectedStickerIndex) {
-                                                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                      setState(() => _isGeneratingSticker = false);
-                                                    });
+                                                  if (_isGeneratingSticker &&
+                                                      idx ==
+                                                          _selectedStickerIndex) {
+                                                    WidgetsBinding.instance
+                                                        .addPostFrameCallback((
+                                                          _,
+                                                        ) {
+                                                          setState(
+                                                            () =>
+                                                                _isGeneratingSticker =
+                                                                    false,
+                                                          );
+                                                        });
                                                   }
                                                   return Container(
                                                     width: currentSize - 6,
                                                     height: currentSize - 6,
                                                     color: Colors.red.shade50,
-                                                    child: const Icon(Icons.broken_image, color: Colors.red, size: 24),
+                                                    child: const Icon(
+                                                      Icons.broken_image,
+                                                      color: Colors.red,
+                                                      size: 24,
+                                                    ),
                                                   );
                                                 },
                                               ),
@@ -642,7 +717,10 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                     onPressed: _addNewSticker,
                     icon: const Icon(Icons.add_photo_alternate),
                     label: const Text('Tambah Sablon'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple.shade50, foregroundColor: Colors.deepPurple),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurple.shade50,
+                      foregroundColor: Colors.deepPurple,
+                    ),
                   ),
                 ),
                 if (_stickers.isNotEmpty) ...[
@@ -652,7 +730,10 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                       onPressed: _removeSticker,
                       icon: const Icon(Icons.delete_forever),
                       label: const Text('Hapus Sablon'),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade50, foregroundColor: Colors.red),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade50,
+                        foregroundColor: Colors.red,
+                      ),
                     ),
                   ),
                 ],
@@ -668,7 +749,9 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Card(
                 elevation: 3,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
@@ -679,45 +762,82 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                         children: [
                           Text(
                             'Edit Sablon #${_selectedStickerIndex + 1} (${_stickers[_selectedStickerIndex]['isFront'] ? 'Depan' : 'Belakang'})',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.deepPurple),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              color: Colors.deepPurple,
+                            ),
                           ),
-                          const Icon(Icons.edit, size: 18, color: Colors.deepPurple),
+                          const Icon(
+                            Icons.edit,
+                            size: 18,
+                            color: Colors.deepPurple,
+                          ),
                         ],
                       ),
                       const SizedBox(height: 12),
-                      
+
                       // Sticker Size Adjustment
-                      const Text('Ukuran Sablon:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      const Text(
+                        'Ukuran Sablon:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(height: 6),
                       Row(
                         children: [
                           Expanded(
                             child: Slider(
-                              value: (_stickers[_selectedStickerIndex]['size'] ?? 80.0) as double,
+                              value:
+                                  (_stickers[_selectedStickerIndex]['size'] ??
+                                          80.0)
+                                      as double,
                               min: 40.0,
                               max: 160.0,
                               divisions: 12,
-                              label: '${(_stickers[_selectedStickerIndex]['size'] ?? 80.0).round()} px',
+                              label:
+                                  '${(_stickers[_selectedStickerIndex]['size'] ?? 80.0).round()} px',
                               onChanged: (val) {
                                 setState(() {
-                                  _stickers[_selectedStickerIndex]['size'] = val;
+                                  _stickers[_selectedStickerIndex]['size'] =
+                                      val;
                                   // Re-clamp coordinates to avoid overflowing the canvas boundaries when scaled up
-                                  final double x = _stickers[_selectedStickerIndex]['x'] ?? 0.0;
-                                  final double y = _stickers[_selectedStickerIndex]['y'] ?? 0.0;
-                                  _stickers[_selectedStickerIndex]['x'] = x.clamp(0.0, _canvasWidth - val);
-                                  _stickers[_selectedStickerIndex]['y'] = y.clamp(0.0, _canvasHeight - val);
+                                  final double x =
+                                      _stickers[_selectedStickerIndex]['x'] ??
+                                      0.0;
+                                  final double y =
+                                      _stickers[_selectedStickerIndex]['y'] ??
+                                      0.0;
+                                  _stickers[_selectedStickerIndex]['x'] = x
+                                      .clamp(0.0, _canvasWidth - val);
+                                  _stickers[_selectedStickerIndex]['y'] = y
+                                      .clamp(0.0, _canvasHeight - val);
                                 });
                               },
                             ),
                           ),
-                          Text('${(_stickers[_selectedStickerIndex]['size'] ?? 80.0).round()} px', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text(
+                            '${(_stickers[_selectedStickerIndex]['size'] ?? 80.0).round()} px',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
                         ],
                       ),
 
                       const Divider(height: 24),
-                      
+
                       // Image Upload
-                      const Text('Unggah Gambar dari Galeri:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      const Text(
+                        'Unggah Gambar dari Galeri:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       ElevatedButton.icon(
                         onPressed: _uploadLocalImage,
@@ -731,7 +851,13 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                       const Divider(height: 24),
 
                       // AI Generation
-                      const Text('Buat Logo dengan AI (Pollinations AI):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      const Text(
+                        'Buat Logo dengan AI (Pollinations AI):',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(height: 6),
                       Row(
                         children: [
@@ -739,27 +865,45 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                             child: TextField(
                               controller: _aiStickerController,
                               decoration: const InputDecoration(
-                                hintText: 'Prompt AI: a cute puppy sticker, vector...',
+                                hintText:
+                                    'Prompt AI: a cute puppy sticker, vector...',
                                 hintStyle: TextStyle(fontSize: 12),
                                 border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
                               ),
                             ),
                           ),
                           const SizedBox(width: 8),
                           ElevatedButton(
-                            onPressed: _isGeneratingSticker ? null : _generateAISticker,
+                            onPressed: _isGeneratingSticker
+                                ? null
+                                : _generateAISticker,
                             child: _isGeneratingSticker
-                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
                                 : const Text('Generate'),
                           ),
                         ],
                       ),
-                      
+
                       const Divider(height: 24),
-                      
+
                       // Custom PNG input
-                      const Text('Tempel URL Gambar PNG Kustom:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      const Text(
+                        'Tempel URL Gambar PNG Kustom:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(height: 6),
                       Row(
                         children: [
@@ -767,10 +911,14 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                             child: TextField(
                               controller: _customPngController,
                               decoration: const InputDecoration(
-                                hintText: 'URL Gambar: https://domain.com/logo.png',
+                                hintText:
+                                    'URL Gambar: https://domain.com/logo.png',
                                 hintStyle: TextStyle(fontSize: 12),
                                 border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
                               ),
                             ),
                           ),
@@ -785,7 +933,13 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                       const Divider(height: 24),
 
                       // Presets PNG Selection
-                      const Text('Pilih Preset Desain Cepat:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      const Text(
+                        'Pilih Preset Desain Cepat:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
@@ -795,7 +949,10 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                               backgroundColor: Colors.transparent,
                               backgroundImage: NetworkImage(preset['url']!),
                             ),
-                            label: Text(preset['name']!, style: const TextStyle(fontSize: 11)),
+                            label: Text(
+                              preset['name']!,
+                              style: const TextStyle(fontSize: 11),
+                            ),
                             onPressed: () => _applyPresetPng(preset['url']!),
                           );
                         }).toList(),
@@ -813,7 +970,9 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Card(
               color: Colors.deepPurple.shade50,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Row(
@@ -822,10 +981,17 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Estimasi Harga Total:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        const Text(
+                          'Estimasi Harga Total:',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
                         Text(
                           'Rp ${totalPrice.toStringAsFixed(0)}',
-                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.deepPurple),
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.deepPurple,
+                          ),
                         ),
                       ],
                     ),
@@ -834,12 +1000,20 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                         ElevatedButton.icon(
                           onPressed: () => _saveToCart(),
                           icon: const Icon(Icons.add_shopping_cart, size: 18),
-                          label: const Text('Simpan ke Keranjang', style: TextStyle(fontSize: 12)),
+                          label: const Text(
+                            'Simpan ke Keranjang',
+                            style: TextStyle(fontSize: 12),
+                          ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
                             foregroundColor: Colors.deepPurple,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -850,8 +1024,13 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.deepPurple,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                           ),
                         ),
                       ],
@@ -861,13 +1040,15 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
               ),
             ),
           ),
-          
+
           // 3D Parallax Preview Button
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: OutlinedButton.icon(
               onPressed: () {
-                final template = _apparelTemplates.firstWhere((t) => t['type'] == _apparelType);
+                final template = _apparelTemplates.firstWhere(
+                  (t) => t['type'] == _apparelType,
+                );
                 Navigator.push(
                   context,
                   MaterialPageRoute(

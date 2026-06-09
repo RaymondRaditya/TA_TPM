@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tpm_ta/screens/main_screen.dart';
 import 'package:tpm_ta/services/notification_service.dart';
 import 'package:tpm_ta/screens/mini_game_screen.dart';
 import 'package:tpm_ta/services/database_helper.dart';
@@ -115,7 +116,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   const Text('Keranjang Anda kosong.', style: TextStyle(fontSize: 18, color: Colors.grey)),
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () {
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (context) => const MainScreen()),
+                        (route) => false,
+                      );
+                    },
                     child: const Text('Kembali ke Desain'),
                   ),
                 ],

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 
@@ -192,22 +193,29 @@ class _ParallaxPreviewScreenState extends State<ParallaxPreviewScreen> {
                                     ),
                                     child: sticker['imageUrl'].isEmpty
                                         ? FlutterLogo(size: currentSize)
-                                        : Image.network(
-                                            sticker['imageUrl'],
-                                            headers: const {
-                                              'User-Agent':
-                                                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-                                            },
-                                            width: currentSize,
-                                            height: currentSize,
-                                            fit: BoxFit.contain,
-                                            errorBuilder: (c, e, s) => Container(
-                                              width: currentSize,
-                                              height: currentSize,
-                                              color: Colors.grey.shade100,
-                                              child: const Icon(Icons.broken_image, size: 20),
-                                            ),
-                                          ),
+                                        : (sticker['isLocal'] ?? false)
+                                            ? Image.file(
+                                                File(sticker['imageUrl']),
+                                                width: currentSize,
+                                                height: currentSize,
+                                                fit: BoxFit.contain,
+                                              )
+                                            : Image.network(
+                                                sticker['imageUrl'],
+                                                headers: const {
+                                                  'User-Agent':
+                                                      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+                                                },
+                                                width: currentSize,
+                                                height: currentSize,
+                                                fit: BoxFit.contain,
+                                                errorBuilder: (c, e, s) => Container(
+                                                  width: currentSize,
+                                                  height: currentSize,
+                                                  color: Colors.grey.shade100,
+                                                  child: const Icon(Icons.broken_image, size: 20),
+                                                ),
+                                              ),
                                   ),
                                 );
                               }).toList(),

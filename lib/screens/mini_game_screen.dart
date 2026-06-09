@@ -2,14 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:sensors_plus/sensors_plus.dart';
-
-class FallingItem {
-  final String id;
-  final double x;
-  double y;
-
-  FallingItem({required this.id, required this.x, required this.y});
-}
+import 'package:tpm_ta/services/notification_service.dart';
 
 class MiniGameScreen extends StatefulWidget {
   const MiniGameScreen({super.key});
@@ -19,275 +12,252 @@ class MiniGameScreen extends StatefulWidget {
 }
 
 class _MiniGameScreenState extends State<MiniGameScreen> {
-  final List<FallingItem> _items = [];
+  // Game State
+  Alignment _logoAlignment = Alignment.center;
+  late Alignment _targetAlignment;
+  late String _targetName;
   int _score = 0;
   int _timeLeft = 30;
-  Timer? _gameLoop;
-  Timer? _spawnLoop;
-  Timer? _countdown;
-  final Random _random = Random();
+  bool _isGameOver = false;
+  Timer? _timer;
+  StreamSubscription<AccelerometerEvent>? _accelSubscription;
 
-  late StreamSubscription<AccelerometerEvent> _accelSubscription;
-  DateTime? _lastShakeTime;
-  static const int _shakeThreshold = 30;
-  static const int _shakeCooldown = 1000; // milliseconds
-  final List<String> _vouchers = [];
+  final Map<String, Alignment> _targetSpots = {
+    'Dada Kiri': const Alignment(-0.35, -0.35),
+    'Dada Kanan': const Alignment(0.35, -0.35),
+    'Lengan Kiri': const Alignment(-0.75, -0.1),
+    'Lengan Kanan': const Alignment(0.75, -0.1),
+  };
 
   @override
   void initState() {
     super.initState();
-    _startGame();
-    _initializeShakeDetection();
+    _pickNewTarget();
+    _startTimer();
+    _listenToAccelerometer();
   }
 
-  void _initializeShakeDetection() {
-    _accelSubscription = accelerometerEventStream().listen((
-      AccelerometerEvent event,
-    ) {
-      _detectShake(event);
-    });
+  void _pickNewTarget() {
+    final random = Random();
+    final keys = _targetSpots.keys.toList();
+    _targetName = keys[random.nextInt(keys.length)];
+    _targetAlignment = _targetSpots[_targetName]!;
+    _logoAlignment = Alignment.center; // Reset logo to center
   }
 
-  void _detectShake(AccelerometerEvent event) {
-    final now = DateTime.now();
-    if (_lastShakeTime != null &&
-        now.difference(_lastShakeTime!).inMilliseconds < _shakeCooldown) {
-      return;
-    }
-
-    final magnitude = sqrt(
-      event.x * event.x + event.y * event.y + event.z * event.z,
-    );
-
-    if (magnitude > _shakeThreshold && _timeLeft > 0) {
-      _lastShakeTime = now;
-      _onShakeDetected();
-    }
-  }
-
-  void _onShakeDetected() {
-    final voucherTypes = [
-      'DISCOUNT_10',
-      'DISCOUNT_15',
-      'DISCOUNT_20',
-      'FREE_SHIRT',
-    ];
-    final randomVoucher = voucherTypes[_random.nextInt(voucherTypes.length)];
-    final voucherText = _getVoucherText(randomVoucher);
-
-    setState(() {
-      _vouchers.add(randomVoucher);
-      _score += 5;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Shake detected! Got voucher: $voucherText 🎉'),
-        duration: const Duration(seconds: 2),
-        backgroundColor: Colors.green,
-      ),
-    );
-  }
-
-  String _getVoucherText(String voucherCode) {
-    switch (voucherCode) {
-      case 'DISCOUNT_10':
-        return '10% Discount';
-      case 'DISCOUNT_15':
-        return '15% Discount';
-      case 'DISCOUNT_20':
-        return '20% Discount';
-      case 'FREE_SHIRT':
-        return 'Free Shirt';
-      default:
-        return 'Mystery Voucher';
-    }
-  }
-
-  void _startGame() {
-    // 1) 30-Second Countdown
-    _countdown = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() {
-        _timeLeft--;
-      });
-      if (_timeLeft <= 0) {
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_timeLeft > 0) {
+        setState(() {
+          _timeLeft--;
+        });
+      } else {
         _endGame();
       }
     });
+  }
 
-    // 2) Spawn new T-shirts periodically
-    _spawnLoop = Timer.periodic(const Duration(milliseconds: 600), (_) {
-      setState(() {
-        _items.add(
-          FallingItem(
-            id:
-                DateTime.now().millisecondsSinceEpoch.toString() +
-                _random.nextInt(1000).toString(),
-            x:
-                _random.nextDouble() * 2 -
-                1, // Random horizontal alignment (-1.0 to 1.0)
-            y: -1.2, // Start slightly above the top of the screen
-          ),
-        );
-      });
-    });
+  void _listenToAccelerometer() {
+    _accelSubscription = accelerometerEventStream().listen((AccelerometerEvent event) {
+      if (_isGameOver) return;
 
-    // 3) Physics/Animation loop to move items downwards
-    _gameLoop = Timer.periodic(const Duration(milliseconds: 50), (_) {
       setState(() {
-        for (var item in _items) {
-          item.y += 0.05; // Fall speed
+        // Update logo alignment based on tilt
+        // x: -10 to 10 usually, map to Alignment -1 to 1
+        // y: -10 to 10 usually, map to Alignment -1 to 1
+        // We invert x because tilting left (positive x) should move left (negative alignment)
+        double newX = _logoAlignment.x - (event.x * 0.05);
+        double newY = _logoAlignment.y + (event.y * 0.05);
+
+        // Constrain to shirt area (roughly -0.9 to 0.9)
+        newX = newX.clamp(-0.9, 0.9);
+        newY = newY.clamp(-0.9, 0.9);
+
+        _logoAlignment = Alignment(newX, newY);
+
+        // Check if close to target
+        if ((_logoAlignment.x - _targetAlignment.x).abs() < 0.15 &&
+            (_logoAlignment.y - _targetAlignment.y).abs() < 0.15) {
+          _onTargetReached();
         }
-        // Remove items that fell off the bottom of the screen
-        _items.removeWhere((item) => item.y > 1.2);
       });
     });
   }
 
-  void _endGame() {
-    _countdown?.cancel();
-    _spawnLoop?.cancel();
-    _gameLoop?.cancel();
-    _accelSubscription.cancel();
+  void _onTargetReached() {
+    setState(() {
+      _score++;
+      if (_score >= 5) {
+        _endGame(won: true);
+      } else {
+        _pickNewTarget();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Mantap! Target tercapai. Cari yang berikutnya!'),
+            duration: Duration(milliseconds: 500),
+          ),
+        );
+      }
+    });
+  }
 
-    final voucherList = _vouchers.map(_getVoucherText).join(', ');
-    final won = _score > 10;
+  void _endGame({bool won = false}) async {
+    if (_isGameOver) return;
+    setState(() {
+      _isGameOver = true;
+    });
+    _timer?.cancel();
+    _accelSubscription?.cancel();
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Time is up!'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                won
-                    ? 'You scored $_score! You won a 10% discount!'
-                    : 'You scored $_score. Try again next time!',
-              ),
-              if (_vouchers.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                const Text(
-                  'Vouchers from shake:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Text(voucherList),
-              ],
-            ],
+    final isWin = won || _score >= 3;
+
+    // Show notification
+    await NotificationService().showNotification(
+      2,
+      isWin ? 'Game Selesai: Anda Menang! 🎉' : 'Game Selesai: Coba Lagi 🎮',
+      isWin 
+          ? 'Selamat! Anda berhasil menempatkan $_score desain dan mendapat diskon 10%.' 
+          : 'Waktu habis! Anda menempatkan $_score desain. Main lagi yuk!',
+    );
+
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: Text(isWin ? 'Selamat!' : 'Waktu Habis'),
+          content: Text(
+            isWin
+                ? 'Anda berhasil menempatkan $_score desain! Anda mendapatkan diskon 10%.'
+                : 'Anda hanya menempatkan $_score desain. Coba lagi untuk dapat diskon!',
           ),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.pop(ctx);
-                Navigator.pop(context, won ? 'DISCOUNT_10' : null);
+                Navigator.pop(context, isWin ? 'DISCOUNT_10' : null);
               },
-              child: const Text('Collect'),
+              child: const Text('OK'),
             ),
           ],
-        );
-      },
-    );
-  }
-
-  void _catchItem(FallingItem item) {
-    setState(() {
-      _score++;
-      _items.remove(item);
-    });
+        ),
+      );
+    }
   }
 
   @override
   void dispose() {
-    _countdown?.cancel();
-    _spawnLoop?.cancel();
-    _gameLoop?.cancel();
-    _accelSubscription.cancel();
+    _timer?.cancel();
+    _accelSubscription?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Catch the Shirts!')),
-      body: Stack(
+      appBar: AppBar(
+        title: const Text('Desain Kaos Accelerometer'),
+        backgroundColor: Colors.deepPurple,
+        foregroundColor: Colors.white,
+      ),
+      body: Column(
         children: [
-          // Background
-          Container(color: Colors.blueGrey.shade50),
-
-          // Falling Items mapped to alignment
-          ..._items.map((item) {
-            return Align(
-              key: ValueKey(item.id),
-              alignment: Alignment(item.x, item.y),
-              child: GestureDetector(
-                onTap: () => _catchItem(item),
-                child: const Icon(
-                  Icons.checkroom,
-                  size: 60,
-                  color: Colors.deepPurple,
-                ),
-              ),
-            );
-          }),
-
-          // HUD Overlay
-          Positioned(
-            top: 16,
-            left: 16,
-            right: 16,
+          // Header info
+          Padding(
+            padding: const EdgeInsets.all(16.0),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Score: $_score',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Target: $_targetName', 
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.deepPurple)),
+                    Text('Score: $_score / 5', style: const TextStyle(fontSize: 16)),
+                  ],
                 ),
-                Text(
-                  'Time: $_timeLeft',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red,
-                  ),
+                CircleAvatar(
+                  backgroundColor: Colors.red,
+                  child: Text('$_timeLeft', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
           ),
-
-          // Shake hint
-          if (_vouchers.isEmpty)
-            Positioned(
-              bottom: 24,
-              left: 16,
-              right: 16,
+          
+          Expanded(
+            child: Center(
               child: Container(
-                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.orange.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange),
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.deepPurple.withOpacity(0.3), width: 2),
                 ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.vibration, color: Colors.orange),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Tip: Shake your phone to get bonus vouchers!',
-                        style: TextStyle(fontSize: 13),
+                child: AspectRatio(
+                  aspectRatio: 0.8,
+                  child: Stack(
+                    children: [
+                      // Kaos Template (Background)
+                      const Center(
+                        child: Icon(
+                          Icons.checkroom,
+                          size: 300,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                  ],
+                      
+                      // Target Spot (Hint)
+                      Align(
+                        alignment: _targetAlignment,
+                        child: Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.3),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.green, width: 2),
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.location_on, color: Colors.green),
+                          ),
+                        ),
+                      ),
+                      
+                      // Moving Logo
+                      Align(
+                        alignment: _logoAlignment,
+                        child: Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: Colors.deepPurple,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.3),
+                                blurRadius: 10,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(Icons.brush, color: Colors.white, size: 30),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
+          ),
+          
+          const Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Text(
+              'Miringkan HP Anda untuk mengarahkan desain (kotak ungu) ke target (lingkaran hijau)!',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+            ),
+          ),
         ],
       ),
     );

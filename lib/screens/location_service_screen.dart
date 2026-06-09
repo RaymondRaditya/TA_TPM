@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -12,8 +14,10 @@ class LocationServiceScreen extends StatefulWidget {
 
 class _LocationServiceScreenState extends State<LocationServiceScreen> {
   final MapController _mapController = MapController();
+  StreamSubscription<Position>? _positionSubscription;
 
   Position? _currentPosition;
+  bool _isTracking = false;
   bool _isLoading = false;
   String? _statusMessage;
 
@@ -44,7 +48,22 @@ class _LocationServiceScreenState extends State<LocationServiceScreen> {
     ),
   ];
 
-  Future<void> _loadCurrentLocation() async {
+  @override
+  void dispose() {
+    _positionSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _toggleTracking() async {
+    if (_isTracking) {
+      await _positionSubscription?.cancel();
+      setState(() {
+        _isTracking = false;
+        _statusMessage = 'Tracking stopped.';
+      });
+      return;
+    }
+
     setState(() {
       _isLoading = true;
       _statusMessage = null;
@@ -74,24 +93,35 @@ class _LocationServiceScreenState extends State<LocationServiceScreen> {
         return;
       }
 
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
+      // Start the position stream for better accuracy and real-time updates
+      const locationSettings = LocationSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: 5, // Update every 5 meters
       );
 
-      setState(() {
-        _currentPosition = position;
-        _isLoading = false;
+      _positionSubscription = Geolocator.getPositionStream(
+        locationSettings: locationSettings,
+      ).listen((Position position) {
+        setState(() {
+          _currentPosition = position;
+          _isTracking = true;
+          _isLoading = false;
+        });
+
+        _mapController.move(
+          LatLng(position.latitude, position.longitude),
+          15,
+        );
+      }, onError: (error) {
+        setState(() {
+          _statusMessage = 'GPS Stream Error: $error';
+          _isTracking = false;
+          _isLoading = false;
+        });
       });
-
-      _mapController.move(
-        LatLng(position.latitude, position.longitude),
-        10,
-      );
     } catch (error) {
       setState(() {
-        _statusMessage = 'Unable to read GPS location: $error';
+        _statusMessage = 'Unable to start GPS tracking: $error';
         _isLoading = false;
       });
     }
@@ -278,15 +308,23 @@ class _LocationServiceScreenState extends State<LocationServiceScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _isLoading ? null : _loadCurrentLocation,
+              onPressed: _isLoading ? null : _toggleTracking,
               icon: _isLoading
                   ? const SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.gps_fixed),
-              label: Text(_isLoading ? 'Reading GPS...' : 'Use My Location'),
+                  : Icon(_isTracking ? Icons.location_off : Icons.gps_fixed),
+              label: Text(_isLoading
+                  ? 'Initializing...'
+                  : _isTracking
+                      ? 'Stop Tracking'
+                      : 'Track My Location'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _isTracking ? Colors.red.shade400 : null,
+                foregroundColor: _isTracking ? Colors.white : null,
+              ),
             ),
           ),
         ],
