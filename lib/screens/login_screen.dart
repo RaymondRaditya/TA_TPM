@@ -11,9 +11,19 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  // GlobalKey for Form to ensure state stability
+  final _formKey = GlobalKey<FormState>();
+  
+  // Controllers
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  
+  // FocusNodes for explicit focus management
+  final FocusNode _emailFocusNode = FocusNode();
+  final FocusNode _passwordFocusNode = FocusNode();
+  
   final AuthService _authService = AuthService();
+  
   bool _isLoading = false;
   bool _isLoginMode = true;
   bool _showBiometricButton = false;
@@ -21,205 +31,229 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    _emailController.addListener(_onEmailChanged);
-  }
-
-  void _onEmailChanged() {
-    _checkBiometricStatusForIdentifier(); // Fire and forget the async check
-  }
-
-  Future<void> _checkBiometricStatusForIdentifier() async {
-    final identifier = _emailController.text.trim();
-    if (identifier.isEmpty) {
-      if (_showBiometricButton) setState(() => _showBiometricButton = false);
-      return;
-    }
-
-    final user = await DatabaseHelper.instance.getUserByIdentifier(identifier);
-    final bool isEnabled =
-        user != null && user[DatabaseHelper.columnBiometricRegistered] == 1;
-
-    if (isEnabled != _showBiometricButton) {
-      setState(() {
-        _showBiometricButton = isEnabled;
-      });
-    }
-  }
-
-  Future<void> _handlePasswordAction() async {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
-
-    if (email.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter email and password.')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    bool success = false;
-
-    if (_isLoginMode) {
-      success = await _authService.login(email, password);
-      setState(() => _isLoading = false);
-      if (success && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MainScreen()),
-        );
-      } else if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Invalid credentials')));
+    // Manual focus request after first frame to ensure the field is ready
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _emailFocusNode.requestFocus();
       }
-    } else {
-      success = await _authService.register(email, password);
-      if (success) {
-        setState(() {
-          _isLoading = false;
-          _isLoginMode = true; // Switch back to login view
-          _passwordController.clear(); // Clear the password field for security
-        });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Registration successful! Please login.'),
-            ),
-          );
-        }
-      } else {
-        setState(() => _isLoading = false);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Registration failed. Email might be in use.'),
-            ),
-          );
-        }
-      }
-    }
-  }
-
-  Future<void> _handleBiometricLogin() async {
-    final email = _emailController.text.trim();
-
-    setState(() => _isLoading = true);
-    final success = await _authService.loginWithBiometrics(email);
-    setState(() => _isLoading = false);
-
-    if (success && mounted) {
-      Navigator.of(
-        context,
-      ).pushReplacement(MaterialPageRoute(builder: (_) => const MainScreen()));
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Biometric authentication failed or was canceled.'),
-        ),
-      );
-    }
+    });
   }
 
   @override
   void dispose() {
-    _emailController.removeListener(_onEmailChanged);
     _emailController.dispose();
     _passwordController.dispose();
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
+  }
+
+  // Pengecekan 2 Kali: 1) Cek Email di Controller, 2) Cek User di Database
+  Future<void> _checkBiometrics() async {
+    final identifier = _emailController.text.trim();
+    if (identifier.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tulis email terlebih dahulu untuk cek biometrik')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    
+    // Double check logic
+    try {
+      final user = await DatabaseHelper.instance.getUserByIdentifier(identifier);
+      if (user != null && user[DatabaseHelper.columnBiometricRegistered] == 1) {
+        setState(() {
+          _showBiometricButton = true;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _showBiometricButton = false;
+          _isLoading = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Biometrik tidak terdaftar untuk akun ini')),
+          );
+        }
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _handleAuthAction() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    setState(() => _isLoading = true);
+
+    try {
+      if (_isLoginMode) {
+        final success = await _authService.login(email, password);
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        if (success) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const MainScreen()),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Email atau Password salah')),
+          );
+        }
+      } else {
+        final success = await _authService.register(email, password);
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        if (success) {
+          setState(() {
+            _isLoginMode = true;
+            _passwordController.clear();
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Registrasi Berhasil! Silakan Login.')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Registrasi Gagal. Email mungkin sudah terdaftar.')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: Text(_isLoginMode ? 'Login' : 'Daftar Akun'),
+        backgroundColor: Colors.deepPurple,
+        foregroundColor: Colors.white,
+      ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Icon(Icons.checkroom, size: 80, color: Colors.black87),
-              const SizedBox(height: 24),
-              const Text(
-                'T-Shirt Studio',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 48),
-              TextField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Password',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.lock),
-                ),
-              ),
-              const SizedBox(height: 24),
-              _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        ElevatedButton(
-                          onPressed: _handlePasswordAction,
-                          style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 16.0),
-                            child: Text(
-                              _isLoginMode ? 'Login' : 'Register',
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: () {
-                            setState(() {
-                              _isLoginMode = !_isLoginMode;
-                            });
-                          },
-                          child: Text(
-                            _isLoginMode
-                                ? "Don't have an account? Register"
-                                : "Already have an account? Login",
-                          ),
-                        ),
-                        if (_isLoginMode && _showBiometricButton) ...[
-                          const SizedBox(height: 8),
-                          ElevatedButton.icon(
-                            onPressed: _handleBiometricLogin,
-                            icon: const Icon(Icons.fingerprint, size: 32),
-                            label: const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 16.0),
-                              child: Text(
-                                'Login with Biometrics',
-                                style: TextStyle(fontSize: 16),
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.checkroom, size: 80, color: Colors.deepPurple),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'T-Shirt Studio',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 32),
+                  
+                  // FIELD EMAIL (Double Checked for Focus)
+                  TextFormField(
+                    key: const ValueKey('email_field_v2'),
+                    controller: _emailController,
+                    focusNode: _emailFocusNode,
+                    enabled: true,
+                    keyboardType: TextInputType.text, // Menggunakan text agar lebih kompatibel
+                    decoration: const InputDecoration(
+                      labelText: 'Email / Username',
+                      hintText: 'Masukkan email Anda',
+                      prefixIcon: Icon(Icons.email),
+                      border: OutlineInputBorder(),
                     ),
-            ],
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) return 'Email tidak boleh kosong';
+                      return null;
+                    },
+                    onFieldSubmitted: (_) => _passwordFocusNode.requestFocus(),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // FIELD PASSWORD
+                  TextFormField(
+                    key: const ValueKey('password_field_v2'),
+                    controller: _passwordController,
+                    focusNode: _passwordFocusNode,
+                    obscureText: true,
+                    enabled: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Password',
+                      hintText: 'Masukkan password Anda',
+                      prefixIcon: Icon(Icons.lock),
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) return 'Password tidak boleh kosong';
+                      if (value.length < 6) return 'Password minimal 6 karakter';
+                      return null;
+                    },
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  if (_isLoading)
+                    const CircularProgressIndicator()
+                  else ...[
+                    ElevatedButton(
+                      onPressed: _handleAuthAction,
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(50),
+                        backgroundColor: Colors.deepPurple,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: Text(_isLoginMode ? 'LOGIN' : 'DAFTAR SEKARANG'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: () => setState(() => _isLoginMode = !_isLoginMode),
+                      child: Text(_isLoginMode 
+                        ? 'Belum punya akun? Daftar di sini' 
+                        : 'Sudah punya akun? Login di sini'),
+                    ),
+                    
+                    if (_isLoginMode) ...[
+                      const Divider(height: 32),
+                      OutlinedButton.icon(
+                        onPressed: _checkBiometrics,
+                        icon: const Icon(Icons.search),
+                        label: const Text('Cek Status Biometrik'),
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(40),
+                        ),
+                      ),
+                    ],
+                    
+                    if (_showBiometricButton && _isLoginMode) ...[
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          final success = await _authService.loginWithBiometrics(_emailController.text);
+                          if (success && mounted) {
+                            Navigator.of(context).pushReplacement(
+                              MaterialPageRoute(builder: (_) => const MainScreen()),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.fingerprint),
+                        label: const Text('Login dengan Sidik Jari'),
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(50),
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
       ),

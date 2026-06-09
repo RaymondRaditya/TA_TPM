@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:tpm_ta/screens/parallax_preview_screen.dart';
 import 'package:tpm_ta/screens/checkout_screen.dart';
@@ -15,6 +17,7 @@ class TShirtCanvasScreen extends StatefulWidget {
 class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
   final TextEditingController _aiStickerController = TextEditingController();
   final TextEditingController _customPngController = TextEditingController();
+  final ImagePicker _picker = ImagePicker();
 
   // Apparel Type & Sizing State
   String _apparelType = 'T-Shirt'; // T-Shirt, Jacket, Hoodie
@@ -44,6 +47,7 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
       'y': 60.0,
       'size': 80.0,
       'imageUrl': '', // Empty means FlutterLogo placeholder
+      'isLocal': false,
       'prompt': '',
       'isFront': true,
     }
@@ -183,8 +187,25 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
           'https://image.pollinations.ai/prompt/${Uri.encodeComponent(prompt)}?width=256&height=256&nologo=true&seed=$randomSeed';
       
       _stickers[_selectedStickerIndex]['imageUrl'] = finalUrl;
+      _stickers[_selectedStickerIndex]['isLocal'] = false;
       _stickers[_selectedStickerIndex]['prompt'] = prompt;
     });
+  }
+
+  Future<void> _uploadLocalImage() async {
+    if (_stickers.isEmpty || _selectedStickerIndex >= _stickers.length) return;
+
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      setState(() {
+        _stickers[_selectedStickerIndex]['imageUrl'] = image.path;
+        _stickers[_selectedStickerIndex]['isLocal'] = true;
+        _stickers[_selectedStickerIndex]['prompt'] = 'Local Image';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gambar berhasil diunggah dari galeri!')),
+      );
+    }
   }
 
   void _applyCustomPngUrl() {
@@ -200,6 +221,7 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
 
     setState(() {
       _stickers[_selectedStickerIndex]['imageUrl'] = url;
+      _stickers[_selectedStickerIndex]['isLocal'] = false;
       _stickers[_selectedStickerIndex]['prompt'] = 'Custom URL';
     });
     
@@ -214,6 +236,7 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
 
     setState(() {
       _stickers[_selectedStickerIndex]['imageUrl'] = url;
+      _stickers[_selectedStickerIndex]['isLocal'] = false;
       _stickers[_selectedStickerIndex]['prompt'] = 'Preset PNG';
     });
   }
@@ -226,6 +249,7 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
         'y': 80.0,
         'size': 80.0,
         'imageUrl': '',
+        'isLocal': false,
         'prompt': '',
         'isFront': _isFrontView,
       };
@@ -522,50 +546,57 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                                       )
                                     : ClipRRect(
                                         borderRadius: BorderRadius.circular(6),
-                                        child: Image.network(
-                                          sticker['imageUrl'],
-                                          headers: const {
-                                            'User-Agent':
-                                                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-                                          },
-                                          width: currentSize - 6,
-                                          height: currentSize - 6,
-                                          loadingBuilder: (context, child, progress) {
-                                            if (progress == null) {
-                                              if (_isGeneratingSticker && idx == _selectedStickerIndex) {
-                                                WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                  setState(() => _isGeneratingSticker = false);
-                                                });
-                                              }
-                                              return child;
-                                            }
-                                            return Container(
-                                              width: currentSize - 6,
-                                              height: currentSize - 6,
-                                              color: Colors.grey.shade100,
-                                              child: const Center(
-                                                child: SizedBox(
-                                                  width: 20,
-                                                  height: 20,
-                                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                                ),
+                                        child: sticker['isLocal']
+                                            ? Image.file(
+                                                File(sticker['imageUrl']),
+                                                width: currentSize - 6,
+                                                height: currentSize - 6,
+                                                fit: BoxFit.contain,
+                                              )
+                                            : Image.network(
+                                                sticker['imageUrl'],
+                                                headers: const {
+                                                  'User-Agent':
+                                                      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+                                                },
+                                                width: currentSize - 6,
+                                                height: currentSize - 6,
+                                                loadingBuilder: (context, child, progress) {
+                                                  if (progress == null) {
+                                                    if (_isGeneratingSticker && idx == _selectedStickerIndex) {
+                                                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                        setState(() => _isGeneratingSticker = false);
+                                                      });
+                                                    }
+                                                    return child;
+                                                  }
+                                                  return Container(
+                                                    width: currentSize - 6,
+                                                    height: currentSize - 6,
+                                                    color: Colors.grey.shade100,
+                                                    child: const Center(
+                                                      child: SizedBox(
+                                                        width: 20,
+                                                        height: 20,
+                                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                                errorBuilder: (context, err, stack) {
+                                                  if (_isGeneratingSticker && idx == _selectedStickerIndex) {
+                                                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                                                      setState(() => _isGeneratingSticker = false);
+                                                    });
+                                                  }
+                                                  return Container(
+                                                    width: currentSize - 6,
+                                                    height: currentSize - 6,
+                                                    color: Colors.red.shade50,
+                                                    child: const Icon(Icons.broken_image, color: Colors.red, size: 24),
+                                                  );
+                                                },
                                               ),
-                                            );
-                                          },
-                                          errorBuilder: (context, err, stack) {
-                                            if (_isGeneratingSticker && idx == _selectedStickerIndex) {
-                                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                                setState(() => _isGeneratingSticker = false);
-                                              });
-                                            }
-                                            return Container(
-                                              width: currentSize - 6,
-                                              height: currentSize - 6,
-                                              color: Colors.red.shade50,
-                                              child: const Icon(Icons.broken_image, color: Colors.red, size: 24),
-                                            );
-                                          },
-                                        ),
                                       ),
                               ),
                             ),
@@ -662,6 +693,20 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
 
                       const Divider(height: 24),
                       
+                      // Image Upload
+                      const Text('Unggah Gambar dari Galeri:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        onPressed: _uploadLocalImage,
+                        icon: const Icon(Icons.upload_file),
+                        label: const Text('Pilih Gambar dari Penyimpanan'),
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size.fromHeight(40),
+                        ),
+                      ),
+
+                      const Divider(height: 24),
+
                       // AI Generation
                       const Text('Buat Logo dengan AI (Pollinations AI):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 6),

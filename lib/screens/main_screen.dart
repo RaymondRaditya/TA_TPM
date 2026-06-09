@@ -4,7 +4,6 @@ import 'package:local_auth/local_auth.dart';
 import 'package:tpm_ta/services/database_helper.dart';
 import 'package:tpm_ta/services/auth_service.dart';
 import 'package:tpm_ta/screens/ai_design_assistant_screen.dart';
-import 'package:tpm_ta/screens/api_catalog_screen.dart';
 import 'package:tpm_ta/screens/currency_converter_screen.dart';
 import 'package:tpm_ta/screens/feedback_screen.dart';
 import 'package:tpm_ta/screens/find_our_branch_screen.dart';
@@ -112,18 +111,6 @@ class _MainScreenState extends State<MainScreen> {
                 context,
                 MaterialPageRoute(
                   builder: (context) => const TimeZoneConverterScreen(),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.cloud_sync),
-            tooltip: 'Live Apparel API',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const ApiCatalogScreen(),
                 ),
               );
             },
