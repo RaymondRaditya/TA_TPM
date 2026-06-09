@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:tpm_ta/screens/parallax_preview_screen.dart';
 import 'package:tpm_ta/screens/checkout_screen.dart';
+import 'package:tpm_ta/services/database_helper.dart';
 
 class TShirtCanvasScreen extends StatefulWidget {
   const TShirtCanvasScreen({super.key});
@@ -279,29 +281,48 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
     );
   }
 
-  void _proceedToCheckout() {
+  void _saveToCart({bool navigateToCheckout = false}) async {
     final totalPrice = _calculateTotalPrice();
+    final layoutData = jsonEncode(_stickers);
     
-    // Set static parameters of CheckoutScreen
-    CheckoutScreen.checkoutPrice = totalPrice;
-    CheckoutScreen.checkoutItemType = _apparelType;
-    CheckoutScreen.checkoutItemSize = _selectedSize;
-    CheckoutScreen.checkoutStickerCount = _stickers.length;
-    CheckoutScreen.checkoutItemName =
-        'Custom $_apparelType Design (${_stickers.length} Sablon, Size $_selectedSize)';
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Desain dikirim ke checkout! Mengalihkan...'),
-        duration: Duration(seconds: 1),
-      ),
-    );
+    final cartItem = {
+      DatabaseHelper.columnCartItemName: 'Custom $_apparelType Design (${_stickers.length} Sablon)',
+      DatabaseHelper.columnCartItemType: _apparelType,
+      DatabaseHelper.columnCartItemSize: _selectedSize,
+      DatabaseHelper.columnCartPrice: totalPrice,
+      DatabaseHelper.columnCartLayoutData: layoutData,
+      DatabaseHelper.columnCartStickerCount: _stickers.length,
+      DatabaseHelper.columnCartColor: _tshirtColor.value,
+    };
 
-    // Redirect user to the Checkout Screen
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const CheckoutScreen()),
-    );
+    try {
+      await DatabaseHelper.instance.insertCartItem(cartItem);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(navigateToCheckout ? 'Desain ditambahkan ke checkout!' : 'Desain disimpan ke keranjang!'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+      
+      if (navigateToCheckout && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const CheckoutScreen()),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal menyimpan ke keranjang: $e')),
+        );
+      }
+    }
+  }
+
+  void _proceedToCheckout() {
+    _saveToCart(navigateToCheckout: true);
   }
 
   @override
@@ -312,6 +333,8 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // ... (existing widgets)
+          // ... around line 680 in the original file, where the price card is
           // 1) Choose Apparel Type & Size Selection
           Padding(
             padding: const EdgeInsets.all(16.0),
@@ -806,16 +829,32 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                         ),
                       ],
                     ),
-                    ElevatedButton.icon(
-                      onPressed: _proceedToCheckout,
-                      icon: const Icon(Icons.shopping_cart_checkout),
-                      label: const Text('Pesan & Checkout'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepPurple,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
+                    Column(
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () => _saveToCart(),
+                          icon: const Icon(Icons.add_shopping_cart, size: 18),
+                          label: const Text('Simpan ke Keranjang', style: TextStyle(fontSize: 12)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: Colors.deepPurple,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ElevatedButton.icon(
+                          onPressed: _proceedToCheckout,
+                          icon: const Icon(Icons.shopping_cart_checkout),
+                          label: const Text('Pesan & Checkout'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.deepPurple,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

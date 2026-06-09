@@ -5,9 +5,11 @@ import 'package:hive_flutter/hive_flutter.dart';
 class DatabaseHelper {
   static const _usersBoxName = 'users';
   static const _designsBoxName = 'saved_designs';
+  static const _cartBoxName = 'cart_items';
   static const _metaBoxName = 'meta';
   static const _lastUserIdKey = 'last_user_id';
   static const _lastDesignIdKey = 'last_design_id';
+  static const _lastCartItemIdKey = 'last_cart_item_id';
 
   // --- Users Fields ---
   static const tableUsers = 'users';
@@ -27,11 +29,23 @@ class DatabaseHelper {
   static const columnLayoutJsonData = 'layout_json_data';
   static const columnCreatedAt = 'created_at';
 
+  // --- Cart Items Fields ---
+  static const tableCartItems = 'cart_items';
+  static const columnCartId = 'id';
+  static const columnCartItemName = 'item_name';
+  static const columnCartItemType = 'item_type';
+  static const columnCartItemSize = 'item_size';
+  static const columnCartPrice = 'price';
+  static const columnCartLayoutData = 'layout_data';
+  static const columnCartStickerCount = 'sticker_count';
+  static const columnCartColor = 'item_color';
+
   DatabaseHelper._privateConstructor();
   static final DatabaseHelper instance = DatabaseHelper._privateConstructor();
 
   Box<Map>? _usersBox;
   Box<Map>? _designsBox;
+  Box<Map>? _cartBox;
   Box<int>? _metaBox;
   bool _isInitialized = false;
 
@@ -40,6 +54,7 @@ class DatabaseHelper {
     await Hive.initFlutter();
     _usersBox = await Hive.openBox<Map>(_usersBoxName);
     _designsBox = await Hive.openBox<Map>(_designsBoxName);
+    _cartBox = await Hive.openBox<Map>(_cartBoxName);
     _metaBox = await Hive.openBox<int>(_metaBoxName);
     _isInitialized = true;
   }
@@ -252,5 +267,41 @@ class DatabaseHelper {
     if (!_designsBox!.containsKey(id)) return 0;
     await _designsBox!.delete(id);
     return 1;
+  }
+
+  // =======================================================
+  //            CRUD OPERATIONS: CART ITEMS
+  // =======================================================
+
+  Future<int> insertCartItem(Map<String, dynamic> row) async {
+    await _ensureInitialized();
+    final id = row[columnCartId] as int? ?? _nextId(_cartBox!, _lastCartItemIdKey);
+    final record = Map<String, dynamic>.from(row)..[columnCartId] = id;
+    await _cartBox!.put(id, record);
+    return id;
+  }
+
+  Future<List<Map<String, dynamic>>> getCartItems() async {
+    await _ensureInitialized();
+    final results = <Map<String, dynamic>>[];
+    for (final key in _cartBox!.keys) {
+      final item = _cartBox!.get(key);
+      if (item == null) continue;
+      results.add(Map<String, dynamic>.from(item));
+    }
+    return results;
+  }
+
+  Future<int> deleteCartItem(int id) async {
+    await _ensureInitialized();
+    if (!_cartBox!.containsKey(id)) return 0;
+    await _cartBox!.delete(id);
+    return 1;
+  }
+
+  Future<void> clearCart() async {
+    await _ensureInitialized();
+    await _cartBox!.clear();
+    await _metaBox!.put(_lastCartItemIdKey, 0);
   }
 }

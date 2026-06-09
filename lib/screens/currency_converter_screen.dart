@@ -1,6 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:tpm_ta/services/currency_service.dart';
 
 class CurrencyConverterScreen extends StatefulWidget {
   const CurrencyConverterScreen({super.key});
@@ -17,53 +16,27 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
 
   String _fromCurrency = 'IDR';
   String _toCurrency = 'USD';
-  Map<String, double> _exchangeRates = {};
-  List<String> _availableCurrencies = [];
+  final CurrencyService _currencyService = CurrencyService();
   bool _isLoading = false;
   bool _hasError = false;
-  DateTime? _lastFetchTime;
-  static const int _cacheDurationMinutes = 60;
 
   @override
   void initState() {
     super.initState();
-    _fetchExchangeRates();
+    _fetchRates();
   }
 
-  Future<void> _fetchExchangeRates() async {
-    if (_lastFetchTime != null &&
-        DateTime.now().difference(_lastFetchTime!).inMinutes <
-            _cacheDurationMinutes) {
-      return;
-    }
-
+  Future<void> _fetchRates() async {
     setState(() {
       _isLoading = true;
       _hasError = false;
     });
 
     try {
-      final response = await http
-          .get(Uri.parse('https://api.exchangerate-api.com/v4/latest/USD'))
-          .timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final rates = Map<String, double>.from(
-          (data['rates'] as Map<String, dynamic>).map(
-            (key, value) => MapEntry(key, (value as num).toDouble()),
-          ),
-        );
-
-        setState(() {
-          _exchangeRates = rates;
-          _availableCurrencies = rates.keys.toList()..sort();
-          _lastFetchTime = DateTime.now();
-          _isLoading = false;
-        });
-      } else {
-        throw Exception('Failed to fetch rates');
-      }
+      await _currencyService.fetchExchangeRates();
+      setState(() {
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() {
         _hasError = true;
@@ -78,17 +51,7 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
   }
 
   double get _convertedAmount {
-    if (_exchangeRates.isEmpty) return 0;
-    final fromRate = _exchangeRates[_fromCurrency] ?? 1;
-    final toRate = _exchangeRates[_toCurrency] ?? 1;
-    return (_amount / fromRate) * toRate;
-  }
-
-  double _convertFromIdr(double amountInIdr, String code) {
-    if (_exchangeRates.isEmpty) return 0;
-    final idrRate = _exchangeRates['IDR'] ?? 1;
-    final targetRate = _exchangeRates[code] ?? 1;
-    return (amountInIdr / idrRate) * targetRate;
+    return _currencyService.convert(_amount, _fromCurrency, _toCurrency);
   }
 
   void _swapCurrencies() {
@@ -104,11 +67,6 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
       _fromCurrency = 'IDR';
       _amountController.text = amountInIdr.toStringAsFixed(0);
     });
-  }
-
-  String _formatCurrency(String code, double value) {
-    final decimalPlaces = code == 'IDR' ? 0 : 2;
-    return '$code ${value.toStringAsFixed(decimalPlaces)}';
   }
 
   @override
@@ -127,7 +85,7 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _fetchExchangeRates,
+            onPressed: _fetchRates,
             tooltip: 'Refresh rates',
           ),
         ],
@@ -208,7 +166,7 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
           ),
           const SizedBox(height: 18),
           Text(
-            _formatCurrency(_toCurrency, convertedAmount),
+            _currencyService.formatCurrency(_toCurrency, convertedAmount),
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
               color: Colors.deepPurple.shade700,
@@ -216,17 +174,9 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            '${_formatCurrency(_fromCurrency, _amount)} in $_toCurrency',
+            '${_currencyService.formatCurrency(_fromCurrency, _amount)} in $_toCurrency',
             style: TextStyle(color: Colors.grey.shade700),
           ),
-          if (_lastFetchTime != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                'Updated: ${_lastFetchTime!.toLocal().toString().split('.')[0]}',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-            ),
         ],
       ),
     );
@@ -295,14 +245,15 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
     required String value,
     required ValueChanged<String?> onChanged,
   }) {
+    final currencies = _currencyService.availableCurrencies;
     return DropdownButtonFormField<String>(
-      value: _availableCurrencies.contains(value) ? value : null,
+      value: currencies.contains(value) ? value : (currencies.isNotEmpty ? currencies.first : null),
       isExpanded: true,
       decoration: InputDecoration(
         labelText: label,
         border: const OutlineInputBorder(),
       ),
-      items: _availableCurrencies
+      items: currencies
           .map(
             (code) => DropdownMenuItem<String>(value: code, child: Text(code)),
           )
@@ -349,7 +300,7 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
             const SizedBox(height: 14),
             Text(
               'Current estimate in $_toCurrency: '
-              '${_formatCurrency(_toCurrency, _convertFromIdr(_amount, _toCurrency))}',
+              '${_currencyService.formatCurrency(_toCurrency, _currencyService.convertFromIdr(_amount, _toCurrency))}',
               style: TextStyle(
                 color: Colors.teal.shade700,
                 fontWeight: FontWeight.w600,
@@ -375,13 +326,13 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
-            if (_exchangeRates.isEmpty)
+            if (_currencyService.exchangeRates.isEmpty)
               Text(
                 'No rates available',
                 style: TextStyle(color: Colors.grey.shade600),
               )
             else
-              ..._exchangeRates.entries
+              ..._currencyService.exchangeRates.entries
                   .take(10)
                   .map(
                     (entry) => Padding(
@@ -407,10 +358,10 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
                       ),
                     ),
                   ),
-            if (_exchangeRates.length > 10) ...[
+            if (_currencyService.exchangeRates.length > 10) ...[
               const SizedBox(height: 8),
               Text(
-                '+${_exchangeRates.length - 10} more currencies',
+                '+${_currencyService.exchangeRates.length - 10} more currencies',
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
               ),
             ],
