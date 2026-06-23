@@ -235,7 +235,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ElevatedButton.icon(
                         onPressed: () async {
                           final success = await _authService.loginWithBiometrics(_emailController.text);
-                          if (success && mounted) {
+                          if (success && context.mounted) {
                             Navigator.of(context).pushReplacement(
                               MaterialPageRoute(builder: (_) => const MainScreen()),
                             );

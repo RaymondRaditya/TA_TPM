@@ -311,7 +311,7 @@ class _AiDesignAssistantScreenState extends State<AiDesignAssistantScreen> {
                 borderRadius: roundedSide,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -369,7 +369,7 @@ class _AiDesignAssistantScreenState extends State<AiDesignAssistantScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -3),
           ),

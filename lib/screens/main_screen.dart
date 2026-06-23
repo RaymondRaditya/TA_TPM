@@ -92,79 +92,121 @@ class _MainScreenState extends State<MainScreen> {
         title: const Text('T-Shirt Studio'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.currency_exchange),
-            tooltip: 'Currency Converter',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const CurrencyConverterScreen(),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.schedule),
-            tooltip: 'Time Zone Converter',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const TimeZoneConverterScreen(),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.sensors),
-            tooltip: 'Sensor Print Check',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const SensorQualityScreen(),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.auto_awesome),
-            tooltip: 'AI Assistant',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const AiDesignAssistantScreen(),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.manage_search),
-            tooltip: 'Search & Alerts',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const SearchFilterNotificationScreen(),
-                ),
-              );
-            },
-          ),
-          IconButton(
             icon: const Icon(Icons.shopping_cart),
+            tooltip: 'Keranjang',
             onPressed: () {
               setState(() => _selectedIndex = 3); // Switch to Checkout tab
             },
           ),
           IconButton(
             icon: const Icon(Icons.person),
+            tooltip: 'Profil',
             onPressed: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const ProfileScreen()),
               );
             },
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            tooltip: 'Fitur Tambahan',
+            onSelected: (value) {
+              switch (value) {
+                case 'currency':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const CurrencyConverterScreen(),
+                    ),
+                  );
+                  break;
+                case 'timezone':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TimeZoneConverterScreen(),
+                    ),
+                  );
+                  break;
+                case 'sensors':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SensorQualityScreen(),
+                    ),
+                  );
+                  break;
+                case 'ai':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AiDesignAssistantScreen(),
+                    ),
+                  );
+                  break;
+                case 'search':
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SearchFilterNotificationScreen(),
+                    ),
+                  );
+                  break;
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'currency',
+                child: Row(
+                  children: [
+                    Icon(Icons.currency_exchange, color: Colors.deepPurple),
+                    SizedBox(width: 8),
+                    Text('Currency Converter'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'timezone',
+                child: Row(
+                  children: [
+                    Icon(Icons.schedule, color: Colors.deepPurple),
+                    SizedBox(width: 8),
+                    Text('Time Zone Converter'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'sensors',
+                child: Row(
+                  children: [
+                    Icon(Icons.sensors, color: Colors.deepPurple),
+                    SizedBox(width: 8),
+                    Text('Sensor Print Check'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'ai',
+                child: Row(
+                  children: [
+                    Icon(Icons.auto_awesome, color: Colors.deepPurple),
+                    SizedBox(width: 8),
+                    Text('AI Design Assistant'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'search',
+                child: Row(
+                  children: [
+                    Icon(Icons.manage_search, color: Colors.deepPurple),
+                    SizedBox(width: 8),
+                    Text('Search & Alerts'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

@@ -8,6 +8,7 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'package:tpm_ta/screens/checkout_screen.dart';
 import 'package:tpm_ta/services/database_helper.dart';
 import 'package:tpm_ta/services/notification_service.dart';
+import 'package:tpm_ta/screens/parallax_preview_screen.dart';
 
 class TShirtCanvasScreen extends StatefulWidget {
   const TShirtCanvasScreen({super.key});
@@ -184,6 +185,7 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
     if (_stickers.isEmpty || _selectedStickerIndex >= _stickers.length) return;
 
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    if (!mounted) return;
     if (image != null) {
       setState(() {
         _stickers[_selectedStickerIndex]['imageUrl'] = image.path;
@@ -278,7 +280,7 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
       DatabaseHelper.columnCartPrice: totalPrice,
       DatabaseHelper.columnCartLayoutData: layoutData,
       DatabaseHelper.columnCartStickerCount: _stickers.length,
-      DatabaseHelper.columnCartColor: _tshirtColor.value,
+      DatabaseHelper.columnCartColor: _tshirtColor.toARGB32(),
     };
 
     try {
@@ -324,7 +326,33 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
     final totalPrice = _calculateTotalPrice();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Design Canvas')),
+      appBar: AppBar(
+        title: const Text('Design Canvas'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.threed_rotation),
+            tooltip: '3D Parallax Preview',
+            onPressed: () {
+              final activeTemplate = _apparelTemplates.firstWhere(
+                (t) => t['type'] == _apparelType,
+                orElse: () => _apparelTemplates[0],
+              );
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ParallaxPreviewScreen(
+                    apparelType: _apparelType,
+                    garmentColor: _tshirtColor,
+                    stickers: _stickers,
+                    frontImageUrl: activeTemplate['frontImage'] ?? '',
+                    backImageUrl: activeTemplate['backImage'] ?? '',
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -343,7 +371,7 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                         children: [
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              value: _apparelType,
+                              initialValue: _apparelType,
                               decoration: const InputDecoration(
                                 labelText: 'Pilih Pakaian',
                                 border: OutlineInputBorder(),
@@ -370,7 +398,7 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              value: _selectedSize,
+                              initialValue: _selectedSize,
                               decoration: const InputDecoration(
                                 labelText: 'Pilih Ukuran',
                                 border: OutlineInputBorder(),
@@ -484,7 +512,7 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.6),
+                              color: Colors.black.withValues(alpha: 0.6),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -545,7 +573,7 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                                       width: isSelected ? 3 : 1.5,
                                     ),
                                     borderRadius: BorderRadius.circular(8),
-                                    color: Colors.white.withOpacity(0.4),
+                                    color: Colors.white.withValues(alpha: 0.4),
                                   ),
                                   child: sticker['imageUrl'].isEmpty
                                       ? Container(
@@ -611,7 +639,7 @@ class _TShirtCanvasScreenState extends State<TShirtCanvasScreen> {
                                 ),
                               ),
                             );
-                          }).toList(),
+                          }),
                       ],
                     ),
                   ),

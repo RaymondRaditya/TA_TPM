@@ -227,7 +227,7 @@ class _TimeZoneConverterScreenState extends State<TimeZoneConverterScreen> {
               Switch(
                 value: _isLive,
                 onChanged: (value) => _toggleLive(),
-                activeColor: Colors.white,
+                activeThumbColor: Colors.white,
                 activeTrackColor: Colors.green,
               ),
             ],
@@ -532,7 +532,7 @@ class _TimeZoneConverterScreenState extends State<TimeZoneConverterScreen> {
               ),
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }

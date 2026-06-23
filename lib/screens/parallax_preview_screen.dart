@@ -113,7 +113,7 @@ class _ParallaxPreviewScreenState extends State<ParallaxPreviewScreen> {
                           borderRadius: BorderRadius.circular(24),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.15),
+                              color: Colors.black.withValues(alpha: 0.15),
                               blurRadius: 20,
                               spreadRadius: 2,
                               offset: const Offset(0, 10),
@@ -127,7 +127,7 @@ class _ParallaxPreviewScreenState extends State<ParallaxPreviewScreen> {
                             child: Text(
                               'Tilt HP Anda untuk Parallax 3D',
                               style: TextStyle(
-                                color: Colors.deepPurple.shade900.withOpacity(0.6),
+                                  color: Colors.deepPurple.shade900.withValues(alpha: 0.6),
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                               ),
@@ -142,7 +142,7 @@ class _ParallaxPreviewScreenState extends State<ParallaxPreviewScreen> {
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 100),
                       transform: Matrix4.translationValues(-dx, -dy, 0)..rotateZ(_rotationZ),
-                      child: Container(
+                      child: SizedBox(
                         width: _previewWidth,
                         height: _previewHeight,
                         child: Stack(
@@ -185,7 +185,7 @@ class _ParallaxPreviewScreenState extends State<ParallaxPreviewScreen> {
                                     decoration: BoxDecoration(
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.1),
+                                           color: Colors.black.withValues(alpha: 0.1),
                                           blurRadius: 4,
                                           spreadRadius: 1,
                                         ),
@@ -218,7 +218,7 @@ class _ParallaxPreviewScreenState extends State<ParallaxPreviewScreen> {
                                               ),
                                   ),
                                 );
-                              }).toList(),
+                              }),
                           ],
                         ),
                       ),

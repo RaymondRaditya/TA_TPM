@@ -260,7 +260,7 @@ class _HomeTabState extends State<HomeTab> {
     return Opacity(
       opacity: 0.85,
       child: Container(
-        color: const Color(0xFFB3E5FC).withOpacity(0.3),
+        color: const Color(0xFFB3E5FC).withValues(alpha: 0.3),
         child: const Icon(
           Icons.checkroom,
           size: 64,

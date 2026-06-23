@@ -191,7 +191,7 @@ class _MiniGameScreenState extends State<MiniGameScreen> {
                 decoration: BoxDecoration(
                   color: Colors.grey[200],
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.deepPurple.withOpacity(0.3), width: 2),
+                  border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.3), width: 2),
                 ),
                 child: AspectRatio(
                   aspectRatio: 0.8,
@@ -213,7 +213,7 @@ class _MiniGameScreenState extends State<MiniGameScreen> {
                           width: 60,
                           height: 60,
                           decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.3),
+                            color: Colors.green.withValues(alpha: 0.3),
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.green, width: 2),
                           ),
@@ -234,7 +234,7 @@ class _MiniGameScreenState extends State<MiniGameScreen> {
                             borderRadius: BorderRadius.circular(8),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.3),
+                                color: Colors.black.withValues(alpha: 0.3),
                                 blurRadius: 10,
                                 offset: const Offset(0, 5),
                               ),

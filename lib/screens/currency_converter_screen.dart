@@ -247,7 +247,7 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
   }) {
     final currencies = _currencyService.availableCurrencies;
     return DropdownButtonFormField<String>(
-      value: currencies.contains(value) ? value : (currencies.isNotEmpty ? currencies.first : null),
+      initialValue: currencies.contains(value) ? value : (currencies.isNotEmpty ? currencies.first : null),
       isExpanded: true,
       decoration: InputDecoration(
         labelText: label,
