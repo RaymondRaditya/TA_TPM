@@ -12,7 +12,13 @@ void main() async {
   await NotificationService().init(); // Initialize the notification service
   await DatabaseHelper.instance.init();
   const secureStorage = FlutterSecureStorage();
-  final sessionToken = await secureStorage.read(key: 'session_token');
+  String? sessionToken;
+  try {
+    sessionToken = await secureStorage.read(key: 'session_token');
+  } catch (e) {
+    await secureStorage.deleteAll();
+    sessionToken = null;
+  }
 
   runApp(MyApp(initialSessionToken: sessionToken));
 }

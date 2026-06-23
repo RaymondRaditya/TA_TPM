@@ -50,6 +50,7 @@ class DatabaseHelper {
   bool _isInitialized = false;
 
   Future<void> init() async {
+    print("APP START");
     if (_isInitialized) return;
     await Hive.initFlutter();
     _usersBox = await Hive.openBox<Map>(_usersBoxName);
@@ -57,6 +58,11 @@ class DatabaseHelper {
     _cartBox = await Hive.openBox<Map>(_cartBoxName);
     _metaBox = await Hive.openBox<int>(_metaBoxName);
     _isInitialized = true;
+
+    print("BOX PATH => ${_usersBox?.path}");
+    print("BOX NAME => ${_usersBox?.name}");
+    print("BOX LENGTH => ${_usersBox?.length}");
+    print("BOX CONTENT => ${_usersBox?.toMap()}");
   }
 
   Future<void> _ensureInitialized() async {
@@ -65,18 +71,20 @@ class DatabaseHelper {
     }
   }
 
-  int _nextId(Box<Map> box, String metaKey) {
+  Future<int> _nextId(Box<Map> box, String metaKey) async {
     final stored = _metaBox?.get(metaKey);
     if (stored != null) {
       final next = stored + 1;
-      _metaBox?.put(metaKey, next);
+      await _metaBox?.put(metaKey, next);
+      await _metaBox?.flush();
       return next;
     }
 
     final keys = box.keys.whereType<int>();
     final maxId = keys.isEmpty ? 0 : keys.reduce(max);
     final next = maxId + 1;
-    _metaBox?.put(metaKey, next);
+    await _metaBox?.put(metaKey, next);
+    await _metaBox?.flush();
     return next;
   }
 
@@ -126,12 +134,15 @@ class DatabaseHelper {
       throw StateError('Username already exists');
     }
 
-    final id = row[columnUserId] as int? ?? _nextId(_usersBox!, _lastUserIdKey);
+    final id = row[columnUserId] as int? ?? await _nextId(_usersBox!, _lastUserIdKey);
     final record = Map<String, dynamic>.from(row)
       ..[columnUserId] = id
       ..putIfAbsent(columnBiometricRegistered, () => 0);
 
+    print("SAVE USER => $record");
     await _usersBox!.put(id, record);
+    await _usersBox!.flush();
+    print("AFTER SAVE => ${_usersBox?.toMap()}");
     return id;
   }
 
@@ -170,6 +181,7 @@ class DatabaseHelper {
   Future<Map<String, dynamic>?> getUserByIdentifier(String identifier) async {
     await _ensureInitialized();
     final normalized = identifier.trim();
+    print("LOGIN USERS => $normalized");
     for (final key in _usersBox!.keys) {
       final user = _usersBox!.get(key);
       if (user == null) continue;
@@ -199,6 +211,7 @@ class DatabaseHelper {
 
     final updated = Map<String, dynamic>.from(existing)..addAll(row);
     await _usersBox!.put(id, updated);
+    await _usersBox!.flush();
     return 1;
   }
 
@@ -206,6 +219,7 @@ class DatabaseHelper {
     await _ensureInitialized();
     if (!_usersBox!.containsKey(id)) return 0;
     await _usersBox!.delete(id);
+    await _usersBox!.flush();
     return 1;
   }
 
@@ -216,6 +230,7 @@ class DatabaseHelper {
     final updated = Map<String, dynamic>.from(existing)
       ..[columnBiometricRegistered] = isEnabled ? 1 : 0;
     await _usersBox!.put(userId, updated);
+    await _usersBox!.flush();
     return 1;
   }
 
@@ -226,9 +241,10 @@ class DatabaseHelper {
   Future<int> insertDesign(Map<String, dynamic> row) async {
     await _ensureInitialized();
     final id =
-        row[columnDesignId] as int? ?? _nextId(_designsBox!, _lastDesignIdKey);
+        row[columnDesignId] as int? ?? await _nextId(_designsBox!, _lastDesignIdKey);
     final record = Map<String, dynamic>.from(row)..[columnDesignId] = id;
     await _designsBox!.put(id, record);
+    await _designsBox!.flush();
     return id;
   }
 
@@ -259,6 +275,7 @@ class DatabaseHelper {
     if (existing == null) return 0;
     final updated = Map<String, dynamic>.from(existing)..addAll(row);
     await _designsBox!.put(id, updated);
+    await _designsBox!.flush();
     return 1;
   }
 
@@ -266,6 +283,7 @@ class DatabaseHelper {
     await _ensureInitialized();
     if (!_designsBox!.containsKey(id)) return 0;
     await _designsBox!.delete(id);
+    await _designsBox!.flush();
     return 1;
   }
 
@@ -275,9 +293,10 @@ class DatabaseHelper {
 
   Future<int> insertCartItem(Map<String, dynamic> row) async {
     await _ensureInitialized();
-    final id = row[columnCartId] as int? ?? _nextId(_cartBox!, _lastCartItemIdKey);
+    final id = row[columnCartId] as int? ?? await _nextId(_cartBox!, _lastCartItemIdKey);
     final record = Map<String, dynamic>.from(row)..[columnCartId] = id;
     await _cartBox!.put(id, record);
+    await _cartBox!.flush();
     return id;
   }
 
@@ -296,6 +315,7 @@ class DatabaseHelper {
     await _ensureInitialized();
     if (!_cartBox!.containsKey(id)) return 0;
     await _cartBox!.delete(id);
+    await _cartBox!.flush();
     return 1;
   }
 
@@ -303,5 +323,7 @@ class DatabaseHelper {
     await _ensureInitialized();
     await _cartBox!.clear();
     await _metaBox!.put(_lastCartItemIdKey, 0);
+    await _cartBox!.flush();
+    await _metaBox!.flush();
   }
 }
